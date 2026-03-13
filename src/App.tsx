@@ -3078,68 +3078,79 @@ export default function App() {
         if (b.type === 'wordart') {
           ctx.save();
           ctx.translate(b.x, b.y);
-          ctx.rotate(b.angle || 0);
-          
+
           if (b.isTitle) {
+            ctx.rotate(b.angle || 0);
             // 巨型大标题清场特效
             const scale = 1 + Math.sin(now * 0.01) * 0.1;
             ctx.scale(scale, scale);
             ctx.font = cnFont(48);
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            
+
             // 红色渐变
             const grad = ctx.createLinearGradient(0, -24, 0, 24);
             grad.addColorStop(0, '#ff4d4f');
             grad.addColorStop(1, '#cf1322');
-            
+
             ctx.shadowColor = 'rgba(207,19,34,0.8)';
             ctx.shadowBlur = 15;
             ctx.fillStyle = grad;
             ctx.fillText(b.text || '清场', 0, 0);
-            
+
             ctx.shadowBlur = 0;
             ctx.lineWidth = 2;
             ctx.strokeStyle = '#ffffff';
             ctx.strokeText(b.text || '清场', 0, 0);
           } else {
-            // 普通 WordArt：黑色代码墙推进
-            const wallW = b.width || Math.max(48, (b.size || 18) * 3);
-            const wallH = b.height || Math.max(22, (b.size || 18));
+            // 普通 WordArt：墙体排布始终与移动方向垂直（整面墙被推出去）
+            const wallAngle = (b.angle || 0) + Math.PI / 2;
+            ctx.rotate(wallAngle);
+
+            const wallW = b.width || Math.max(56, (b.size || 18) * 3.2);
+            const wallH = b.height || Math.max(24, (b.size || 18) * 1.1);
             const halfW = wallW / 2;
             const halfH = wallH / 2;
-            const flowOffset = ((now * 0.12) + b.id * 11) % 24;
 
-            ctx.fillStyle = '#050505';
-            ctx.shadowColor = 'rgba(0,0,0,0.8)';
-            ctx.shadowBlur = 10;
+            ctx.fillStyle = '#11151c';
+            ctx.shadowColor = 'rgba(0,0,0,0.45)';
+            ctx.shadowBlur = 8;
             ctx.fillRect(-halfW, -halfH, wallW, wallH);
 
-            ctx.strokeStyle = '#161b22';
+            ctx.strokeStyle = '#2f3c4f';
             ctx.lineWidth = 2;
             ctx.strokeRect(-halfW, -halfH, wallW, wallH);
 
-            // 前缘高亮，强化“向前推”
-            const frontGrad = ctx.createLinearGradient(halfW - 16, 0, halfW + 2, 0);
-            frontGrad.addColorStop(0, 'rgba(56,139,253,0.05)');
-            frontGrad.addColorStop(1, 'rgba(56,139,253,0.45)');
+            // 前缘冲击高亮
+            const frontGrad = ctx.createLinearGradient(halfW - 20, 0, halfW + 4, 0);
+            frontGrad.addColorStop(0, 'rgba(88,166,255,0.08)');
+            frontGrad.addColorStop(1, 'rgba(88,166,255,0.6)');
             ctx.fillStyle = frontGrad;
-            ctx.fillRect(halfW - 16, -halfH, 18, wallH);
+            ctx.fillRect(halfW - 20, -halfH, 24, wallH);
 
+            // 代码“向前冲”效果
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(-halfW + 2, -halfH + 2, wallW - 4, wallH - 4);
+            ctx.clip();
             const codeRows = Math.max(2, Math.floor(wallH / 8));
-            const snippets = ['const', 'if()', '=>', '{}', '0xFF', 'NaN', 'null', 'return'];
+            const snippets = ['const', 'if()', '=>', '{}', '0xFF', 'NaN', 'return', 'null'];
             ctx.font = codeFont(8);
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
             ctx.shadowBlur = 0;
             for (let row = 0; row < codeRows; row++) {
               const rowY = -halfH + 5 + row * 8;
-              const code = snippets[(Math.floor(now / 90) + row + b.id) % snippets.length];
-              ctx.fillStyle = 'rgba(125,133,144,0.8)';
-              for (let x = -halfW + ((row * 7 + flowOffset) % 20); x < halfW; x += 20) {
-                ctx.fillText(code, x, rowY);
+              const rowSpeed = 0.42 + row * 0.07;
+              for (let lane = 0; lane < 6; lane++) {
+                const token = snippets[(row + lane + b.id + Math.floor(now / 120)) % snippets.length];
+                const x = ((now * rowSpeed + lane * 37 + row * 19 + b.id * 13) % (wallW + 70)) - halfW - 35;
+                const alpha = 0.25 + (x + halfW + 35) / (wallW + 70) * 0.7;
+                ctx.fillStyle = `rgba(173,186,199,${Math.min(0.92, alpha)})`;
+                ctx.fillText(token, x, rowY);
               }
             }
+            ctx.restore();
           }
           ctx.restore();
 
