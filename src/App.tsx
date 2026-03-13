@@ -705,8 +705,8 @@ export default function App() {
               fireRate /= 0.8;
             }
 
-            let wordWidth = size * 2.5;
-            let wordHeight = size * 0.8;
+            let wordWidth = size * 1.35;
+            let wordHeight = size * 0.42;
 
             if (specific.includes('wordart_wide')) {
               wordWidth *= 2;
@@ -1818,30 +1818,16 @@ export default function App() {
           if (!b.isBulldozer && b.hitTargets && b.hitTargets.has(e.id)) continue;
 
           let isHit = false;
-          if (b.type === 'wordart' && b.size) {
-            if (Math.abs(b.x - e.x) < b.size/2 + e.width/2 && Math.abs(b.y - e.y) < b.size/2 + e.height/2) {
-              isHit = true;
-            }
-          } else if (b.width && b.height && b.angle !== undefined) {
+          if (b.type === 'wordart' && b.width && b.height && b.angle !== undefined) {
             const dx = e.x - b.x;
             const dy = e.y - b.y;
-            const cos = Math.cos(-b.angle);
-            const sin = Math.sin(-b.angle);
+            const wallAngle = b.isTitle ? b.angle : b.angle + Math.PI / 2;
+            const cos = Math.cos(-wallAngle);
+            const sin = Math.sin(-wallAngle);
             const rx = dx * cos - dy * sin;
             const ry = dx * sin + dy * cos;
             
             if (Math.abs(rx) < b.width/2 + e.width/2 && Math.abs(ry) < b.height/2 + e.height/2) {
-              isHit = true;
-            }
-          } else if (b.isBulldozer && b.angle !== undefined) {
-            const dx = e.x - b.x;
-            const dy = e.y - b.y;
-            const cos = Math.cos(-b.angle);
-            const sin = Math.sin(-b.angle);
-            const rx = dx * cos - dy * sin;
-            const ry = dx * sin + dy * cos;
-            
-            if (Math.abs(rx) < 20 + e.width/2 && Math.abs(ry) < b.size/2 + e.height/2) {
               isHit = true;
             }
           } else {
@@ -2169,8 +2155,15 @@ export default function App() {
 
         let blocked = false;
         for (const b of room.bullets) {
-          if (b.type === 'wordart' && b.isShield && b.width && b.height) {
-            if (Math.abs(eb.x - b.x) < (b.width/2 + eb.size) && Math.abs(eb.y - b.y) < (b.height/2 + eb.size)) {
+          if (b.type === 'wordart' && b.isShield && b.width && b.height && b.angle !== undefined) {
+            const dx = eb.x - b.x;
+            const dy = eb.y - b.y;
+            const wallAngle = b.isTitle ? b.angle : b.angle + Math.PI / 2;
+            const cos = Math.cos(-wallAngle);
+            const sin = Math.sin(-wallAngle);
+            const rx = dx * cos - dy * sin;
+            const ry = dx * sin + dy * cos;
+            if (Math.abs(rx) < (b.width / 2 + eb.size) && Math.abs(ry) < (b.height / 2 + eb.size)) {
               blocked = true;
               break;
             }
@@ -3112,21 +3105,19 @@ export default function App() {
             const halfW = wallW / 2;
             const halfH = wallH / 2;
 
-            ctx.fillStyle = '#11151c';
-            ctx.shadowColor = 'rgba(0,0,0,0.45)';
-            ctx.shadowBlur = 8;
-            ctx.fillRect(-halfW, -halfH, wallW, wallH);
+            ctx.shadowColor = 'rgba(0,0,0,0.2)';
+            ctx.shadowBlur = 4;
 
-            ctx.strokeStyle = '#2f3c4f';
-            ctx.lineWidth = 2;
+            ctx.strokeStyle = 'rgba(17,24,39,0.35)';
+            ctx.lineWidth = 1;
             ctx.strokeRect(-halfW, -halfH, wallW, wallH);
 
             // 前缘冲击高亮
-            const frontGrad = ctx.createLinearGradient(halfW - 20, 0, halfW + 4, 0);
-            frontGrad.addColorStop(0, 'rgba(88,166,255,0.08)');
-            frontGrad.addColorStop(1, 'rgba(88,166,255,0.6)');
+            const frontGrad = ctx.createLinearGradient(halfW - 14, 0, halfW + 4, 0);
+            frontGrad.addColorStop(0, 'rgba(17,24,39,0.05)');
+            frontGrad.addColorStop(1, 'rgba(17,24,39,0.28)');
             ctx.fillStyle = frontGrad;
-            ctx.fillRect(halfW - 20, -halfH, 24, wallH);
+            ctx.fillRect(halfW - 14, -halfH, 18, wallH);
 
             // 代码“向前冲”效果
             ctx.save();
@@ -3141,12 +3132,12 @@ export default function App() {
             ctx.shadowBlur = 0;
             for (let row = 0; row < codeRows; row++) {
               const rowY = -halfH + 5 + row * 8;
-              const rowSpeed = 0.42 + row * 0.07;
-              for (let lane = 0; lane < 6; lane++) {
+              const rowSpeed = 0.52 + row * 0.08;
+              for (let lane = 0; lane < 8; lane++) {
                 const token = snippets[(row + lane + b.id + Math.floor(now / 120)) % snippets.length];
-                const x = ((now * rowSpeed + lane * 37 + row * 19 + b.id * 13) % (wallW + 70)) - halfW - 35;
-                const alpha = 0.25 + (x + halfW + 35) / (wallW + 70) * 0.7;
-                ctx.fillStyle = `rgba(173,186,199,${Math.min(0.92, alpha)})`;
+                const x = ((now * rowSpeed + lane * 29 + row * 17 + b.id * 13) % (wallW + 88)) - halfW - 44;
+                const alpha = 0.22 + (x + halfW + 44) / (wallW + 88) * 0.72;
+                ctx.fillStyle = `rgba(0,0,0,${Math.max(0.12, Math.min(0.9, alpha))})`;
                 ctx.fillText(token, x, rowY);
               }
             }
