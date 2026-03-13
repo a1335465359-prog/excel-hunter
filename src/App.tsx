@@ -705,8 +705,8 @@ export default function App() {
               fireRate /= 0.8;
             }
 
-            let wordWidth = size * 2.5;
-            let wordHeight = size * 0.8;
+            let wordWidth = size * 1.35;
+            let wordHeight = size * 0.42;
 
             if (specific.includes('wordart_wide')) {
               wordWidth *= 2;
@@ -809,8 +809,8 @@ export default function App() {
                   damage: finalDamage * dmgMult,
                   width: width + extraWidth,
                   range: range,
-                  life: 15,
-                  maxLife: 15,
+                  life: 10,
+                  maxLife: 10,
                   type: 'sparkline',
                   isCrit: isCrit,
                   eliteDamageMult: eliteDamageMult,
@@ -1818,30 +1818,16 @@ export default function App() {
           if (!b.isBulldozer && b.hitTargets && b.hitTargets.has(e.id)) continue;
 
           let isHit = false;
-          if (b.type === 'wordart' && b.size) {
-            if (Math.abs(b.x - e.x) < b.size/2 + e.width/2 && Math.abs(b.y - e.y) < b.size/2 + e.height/2) {
-              isHit = true;
-            }
-          } else if (b.width && b.height && b.angle !== undefined) {
+          if (b.type === 'wordart' && b.width && b.height && b.angle !== undefined) {
             const dx = e.x - b.x;
             const dy = e.y - b.y;
-            const cos = Math.cos(-b.angle);
-            const sin = Math.sin(-b.angle);
+            const wallAngle = b.isTitle ? b.angle : b.angle + Math.PI / 2;
+            const cos = Math.cos(-wallAngle);
+            const sin = Math.sin(-wallAngle);
             const rx = dx * cos - dy * sin;
             const ry = dx * sin + dy * cos;
             
             if (Math.abs(rx) < b.width/2 + e.width/2 && Math.abs(ry) < b.height/2 + e.height/2) {
-              isHit = true;
-            }
-          } else if (b.isBulldozer && b.angle !== undefined) {
-            const dx = e.x - b.x;
-            const dy = e.y - b.y;
-            const cos = Math.cos(-b.angle);
-            const sin = Math.sin(-b.angle);
-            const rx = dx * cos - dy * sin;
-            const ry = dx * sin + dy * cos;
-            
-            if (Math.abs(rx) < 20 + e.width/2 && Math.abs(ry) < b.size/2 + e.height/2) {
               isHit = true;
             }
           } else {
@@ -1973,7 +1959,7 @@ export default function App() {
               }
             }
 
-            if (b.isBulldozer && e.type !== 'EliteBoss' && e.type !== 'MiniBoss') {
+            if (b.isBulldozer) {
               const prevX = e.x;
               const prevY = e.y;
               
@@ -2013,8 +1999,21 @@ export default function App() {
 
               if (atWall) {
                 if (!e.crushCooldown || now > e.crushCooldown) {
+                  const isBoss = e.type === 'EliteBoss' || e.type === 'MiniBoss';
                   const isElite = e.type !== 'Minion' && e.type !== 'MINION';
-                  if (isElite) {
+                  if (isBoss) {
+                    const wallHitRatio = e.type === 'EliteBoss' ? 0.2 : 1 / 3;
+                    e.hp -= e.maxHp * wallHitRatio;
+                    e.crushCooldown = now + 500;
+                    shake.current = Math.max(shake.current, 8);
+                    particles.current.push({
+                      x: e.x, y: e.y,
+                      vx: 0, vy: -2,
+                      life: 32,
+                      color: '#f97316',
+                      text: e.type === 'EliteBoss' ? 'WALL -20% MAX HP' : 'WALL -33% MAX HP'
+                    });
+                  } else if (isElite) {
                     if (!e.crushCount) {
                       e.crushCount = 1;
                       e.crushCooldown = now + 1000; // 1 second cooldown
@@ -2156,8 +2155,15 @@ export default function App() {
 
         let blocked = false;
         for (const b of room.bullets) {
-          if (b.type === 'wordart' && b.isShield && b.width && b.height) {
-            if (Math.abs(eb.x - b.x) < (b.width/2 + eb.size) && Math.abs(eb.y - b.y) < (b.height/2 + eb.size)) {
+          if (b.type === 'wordart' && b.isShield && b.width && b.height && b.angle !== undefined) {
+            const dx = eb.x - b.x;
+            const dy = eb.y - b.y;
+            const wallAngle = b.isTitle ? b.angle : b.angle + Math.PI / 2;
+            const cos = Math.cos(-wallAngle);
+            const sin = Math.sin(-wallAngle);
+            const rx = dx * cos - dy * sin;
+            const ry = dx * sin + dy * cos;
+            if (Math.abs(rx) < (b.width / 2 + eb.size) && Math.abs(ry) < (b.height / 2 + eb.size)) {
               blocked = true;
               break;
             }
@@ -2341,8 +2347,8 @@ export default function App() {
                   damage: l.damage * 0.5,
                   width: l.width,
                   range: 3000,
-                  life: 15,
-                  maxLife: 15,
+                  life: 10,
+                  maxLife: 10,
                   type: 'sparkline',
                   isCrit: l.isCrit,
                   eliteDamageMult: l.eliteDamageMult,
@@ -3065,48 +3071,77 @@ export default function App() {
         if (b.type === 'wordart') {
           ctx.save();
           ctx.translate(b.x, b.y);
-          ctx.rotate(b.angle || 0);
-          
+
           if (b.isTitle) {
+            ctx.rotate(b.angle || 0);
             // 巨型大标题清场特效
             const scale = 1 + Math.sin(now * 0.01) * 0.1;
             ctx.scale(scale, scale);
             ctx.font = cnFont(48);
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            
+
             // 红色渐变
             const grad = ctx.createLinearGradient(0, -24, 0, 24);
             grad.addColorStop(0, '#ff4d4f');
             grad.addColorStop(1, '#cf1322');
-            
+
             ctx.shadowColor = 'rgba(207,19,34,0.8)';
             ctx.shadowBlur = 15;
             ctx.fillStyle = grad;
             ctx.fillText(b.text || '清场', 0, 0);
-            
+
             ctx.shadowBlur = 0;
             ctx.lineWidth = 2;
             ctx.strokeStyle = '#ffffff';
             ctx.strokeText(b.text || '清场', 0, 0);
           } else {
-            // 普通 WordArt 子弹：绿色填充，前端白色发光
-            ctx.font = boldCode(14);
-            ctx.textAlign = 'center';
+            // 普通 WordArt：墙体排布始终与移动方向垂直（整面墙被推出去）
+            const wallAngle = (b.angle || 0) + Math.PI / 2;
+            ctx.rotate(wallAngle);
+
+            const wallW = b.width || Math.max(56, (b.size || 18) * 3.2);
+            const wallH = b.height || Math.max(24, (b.size || 18) * 1.1);
+            const halfW = wallW / 2;
+            const halfH = wallH / 2;
+
+            ctx.shadowColor = 'rgba(0,0,0,0.2)';
+            ctx.shadowBlur = 4;
+
+            ctx.strokeStyle = 'rgba(17,24,39,0.35)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(-halfW, -halfH, wallW, wallH);
+
+            // 前缘冲击高亮
+            const frontGrad = ctx.createLinearGradient(halfW - 14, 0, halfW + 4, 0);
+            frontGrad.addColorStop(0, 'rgba(17,24,39,0.05)');
+            frontGrad.addColorStop(1, 'rgba(17,24,39,0.28)');
+            ctx.fillStyle = frontGrad;
+            ctx.fillRect(halfW - 14, -halfH, 18, wallH);
+
+            // 代码“向前冲”效果
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(-halfW + 2, -halfH + 2, wallW - 4, wallH - 4);
+            ctx.clip();
+            const codeRows = Math.max(2, Math.floor(wallH / 8));
+            const snippets = ['const', 'if()', '=>', '{}', '0xFF', 'NaN', 'return', 'null'];
+            ctx.font = codeFont(8);
+            ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
-            
-            ctx.shadowColor = '#2ea043';
-            ctx.shadowBlur = 8;
-            ctx.fillStyle = '#2ea043';
-            
-            // 动态字符
-            const chars = ['0','1','A','B','C','D','E','F'];
-            const char = chars[Math.floor(now/100 + b.id) % chars.length];
-            ctx.fillText(char, 0, 0);
-            
-            // 扫描线特效
-            ctx.fillStyle = 'rgba(46,160,67,0.3)';
-            ctx.fillRect(-8, -8 + (now/20)%16, 16, 2);
+            ctx.shadowBlur = 0;
+            for (let row = 0; row < codeRows; row++) {
+              const rowY = -halfH + 5 + row * 8;
+              const rowSpeed = 0.52 + row * 0.08;
+              for (let lane = 0; lane < 8; lane++) {
+                const token = snippets[(row + lane + b.id + Math.floor(now / 120)) % snippets.length];
+                const x = ((now * rowSpeed + lane * 29 + row * 17 + b.id * 13) % (wallW + 88)) - halfW - 44;
+                const alpha = 0.22 + (x + halfW + 44) / (wallW + 88) * 0.72;
+                ctx.fillStyle = `rgba(0,0,0,${Math.max(0.12, Math.min(0.9, alpha))})`;
+                ctx.fillText(token, x, rowY);
+              }
+            }
+            ctx.restore();
           }
           ctx.restore();
 
@@ -3228,7 +3263,7 @@ export default function App() {
         
         if (l.type === 'sparkline') {
           const isCannon = l.isCannon;
-          const alpha = Math.max(0, l.life / l.maxLife);
+          const alpha = Math.max(0, Math.pow(l.life / l.maxLife, 1.8));
           
           if (isCannon) {
             // 巨型激光：大号重复字符
@@ -3246,20 +3281,20 @@ export default function App() {
               }
             }
           } else {
-            // 普通激光：字符流
-            ctx.font = codeFont(14);
+            // 普通激光：前向喷射字符流（无闪烁）
+            ctx.font = codeFont(13);
             const charCount = Math.floor(l.range / 10);
+            const forwardOffset = (1 - alpha) * 24;
             for (let i = 0; i < charCount; i++) {
               const dist = i * 10;
-              const char = '01NaNnull{}[]()=>undefinedvoid0xFFerr%$#@!'[(Math.floor(now/50)+i)%42];
-              const yOffset = Math.sin(dist * 0.03 + now * 0.02) * 2;
-              const streamOffset = (now * 0.35) % 10;
-              const fade = 1 - (dist / l.range);
-              ctx.fillStyle = `rgba(30,30,30,${alpha * fade})`;
-              
-              const widthMultiplier = l.width > 20 ? 3 : 1;
+              const char = '01NaNnull{}[]()=>undefinedvoid0xFFerr%$#@!'[(Math.floor(now / 45) - i + 84) % 42];
+              const yOffset = Math.sin(dist * 0.02) * 1.2;
+              const fade = Math.max(0, 1 - (dist / (l.range * 0.65)));
+              ctx.fillStyle = `rgba(20,20,20,${alpha * fade})`;
+
+              const widthMultiplier = l.width > 20 ? 2 : 1;
               for (let w = -widthMultiplier; w <= widthMultiplier; w++) {
-                ctx.fillText(char, dist + streamOffset, yOffset + w * 12);
+                ctx.fillText(char, dist + forwardOffset, yOffset + w * 10);
               }
             }
           }
