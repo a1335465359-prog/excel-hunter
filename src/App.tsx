@@ -809,8 +809,8 @@ export default function App() {
                   damage: finalDamage * dmgMult,
                   width: width + extraWidth,
                   range: range,
-                  life: 15,
-                  maxLife: 15,
+                  life: 10,
+                  maxLife: 10,
                   type: 'sparkline',
                   isCrit: isCrit,
                   eliteDamageMult: eliteDamageMult,
@@ -1973,7 +1973,7 @@ export default function App() {
               }
             }
 
-            if (b.isBulldozer && e.type !== 'EliteBoss' && e.type !== 'MiniBoss') {
+            if (b.isBulldozer) {
               const prevX = e.x;
               const prevY = e.y;
               
@@ -2013,8 +2013,21 @@ export default function App() {
 
               if (atWall) {
                 if (!e.crushCooldown || now > e.crushCooldown) {
+                  const isBoss = e.type === 'EliteBoss' || e.type === 'MiniBoss';
                   const isElite = e.type !== 'Minion' && e.type !== 'MINION';
-                  if (isElite) {
+                  if (isBoss) {
+                    const wallHitRatio = e.type === 'EliteBoss' ? 0.2 : 1 / 3;
+                    e.hp -= e.maxHp * wallHitRatio;
+                    e.crushCooldown = now + 500;
+                    shake.current = Math.max(shake.current, 8);
+                    particles.current.push({
+                      x: e.x, y: e.y,
+                      vx: 0, vy: -2,
+                      life: 32,
+                      color: '#f97316',
+                      text: e.type === 'EliteBoss' ? 'WALL -20% MAX HP' : 'WALL -33% MAX HP'
+                    });
+                  } else if (isElite) {
                     if (!e.crushCount) {
                       e.crushCount = 1;
                       e.crushCooldown = now + 1000; // 1 second cooldown
@@ -2341,8 +2354,8 @@ export default function App() {
                   damage: l.damage * 0.5,
                   width: l.width,
                   range: 3000,
-                  life: 15,
-                  maxLife: 15,
+                  life: 10,
+                  maxLife: 10,
                   type: 'sparkline',
                   isCrit: l.isCrit,
                   eliteDamageMult: l.eliteDamageMult,
@@ -3090,23 +3103,43 @@ export default function App() {
             ctx.strokeStyle = '#ffffff';
             ctx.strokeText(b.text || '清场', 0, 0);
           } else {
-            // 普通 WordArt 子弹：绿色填充，前端白色发光
-            ctx.font = boldCode(14);
-            ctx.textAlign = 'center';
+            // 普通 WordArt：黑色代码墙推进
+            const wallW = b.width || Math.max(48, (b.size || 18) * 3);
+            const wallH = b.height || Math.max(22, (b.size || 18));
+            const halfW = wallW / 2;
+            const halfH = wallH / 2;
+            const flowOffset = ((now * 0.12) + b.id * 11) % 24;
+
+            ctx.fillStyle = '#050505';
+            ctx.shadowColor = 'rgba(0,0,0,0.8)';
+            ctx.shadowBlur = 10;
+            ctx.fillRect(-halfW, -halfH, wallW, wallH);
+
+            ctx.strokeStyle = '#161b22';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(-halfW, -halfH, wallW, wallH);
+
+            // 前缘高亮，强化“向前推”
+            const frontGrad = ctx.createLinearGradient(halfW - 16, 0, halfW + 2, 0);
+            frontGrad.addColorStop(0, 'rgba(56,139,253,0.05)');
+            frontGrad.addColorStop(1, 'rgba(56,139,253,0.45)');
+            ctx.fillStyle = frontGrad;
+            ctx.fillRect(halfW - 16, -halfH, 18, wallH);
+
+            const codeRows = Math.max(2, Math.floor(wallH / 8));
+            const snippets = ['const', 'if()', '=>', '{}', '0xFF', 'NaN', 'null', 'return'];
+            ctx.font = codeFont(8);
+            ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
-            
-            ctx.shadowColor = '#2ea043';
-            ctx.shadowBlur = 8;
-            ctx.fillStyle = '#2ea043';
-            
-            // 动态字符
-            const chars = ['0','1','A','B','C','D','E','F'];
-            const char = chars[Math.floor(now/100 + b.id) % chars.length];
-            ctx.fillText(char, 0, 0);
-            
-            // 扫描线特效
-            ctx.fillStyle = 'rgba(46,160,67,0.3)';
-            ctx.fillRect(-8, -8 + (now/20)%16, 16, 2);
+            ctx.shadowBlur = 0;
+            for (let row = 0; row < codeRows; row++) {
+              const rowY = -halfH + 5 + row * 8;
+              const code = snippets[(Math.floor(now / 90) + row + b.id) % snippets.length];
+              ctx.fillStyle = 'rgba(125,133,144,0.8)';
+              for (let x = -halfW + ((row * 7 + flowOffset) % 20); x < halfW; x += 20) {
+                ctx.fillText(code, x, rowY);
+              }
+            }
           }
           ctx.restore();
 
@@ -3228,7 +3261,7 @@ export default function App() {
         
         if (l.type === 'sparkline') {
           const isCannon = l.isCannon;
-          const alpha = Math.max(0, l.life / l.maxLife);
+          const alpha = Math.max(0, Math.pow(l.life / l.maxLife, 1.8));
           
           if (isCannon) {
             // 巨型激光：大号重复字符
@@ -3246,20 +3279,20 @@ export default function App() {
               }
             }
           } else {
-            // 普通激光：字符流
-            ctx.font = codeFont(14);
+            // 普通激光：前向喷射字符流（无闪烁）
+            ctx.font = codeFont(13);
             const charCount = Math.floor(l.range / 10);
+            const forwardOffset = (1 - alpha) * 24;
             for (let i = 0; i < charCount; i++) {
               const dist = i * 10;
-              const char = '01NaNnull{}[]()=>undefinedvoid0xFFerr%$#@!'[(Math.floor(now/50)+i)%42];
-              const yOffset = Math.sin(dist * 0.03 + now * 0.02) * 2;
-              const streamOffset = (now * 0.35) % 10;
-              const fade = 1 - (dist / l.range);
-              ctx.fillStyle = `rgba(30,30,30,${alpha * fade})`;
-              
-              const widthMultiplier = l.width > 20 ? 3 : 1;
+              const char = '01NaNnull{}[]()=>undefinedvoid0xFFerr%$#@!'[(Math.floor(now / 45) - i + 84) % 42];
+              const yOffset = Math.sin(dist * 0.02) * 1.2;
+              const fade = Math.max(0, 1 - (dist / (l.range * 0.65)));
+              ctx.fillStyle = `rgba(20,20,20,${alpha * fade})`;
+
+              const widthMultiplier = l.width > 20 ? 2 : 1;
               for (let w = -widthMultiplier; w <= widthMultiplier; w++) {
-                ctx.fillText(char, dist + streamOffset, yOffset + w * 12);
+                ctx.fillText(char, dist + forwardOffset, yOffset + w * 10);
               }
             }
           }
