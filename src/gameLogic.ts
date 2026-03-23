@@ -245,6 +245,9 @@ export interface Enemy {
   lastPushedBy?: number; // Bullet ID
   spawnedBy?: number;
   validationMark?: number;
+  hitFlashUntil?: number;
+  renderScaleX?: number;
+  renderScaleY?: number;
 }
 
 export interface EnemyBullet {

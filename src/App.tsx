@@ -1720,8 +1720,11 @@ export default function App() {
                 if (b.isSuper && e.type !== 'EliteBoss' && e.type !== 'MiniBoss') {
                   e.hp = 0;
                 } else {
-                  e.hp -= finalDamage;
-                }
+	                  e.hp -= finalDamage;
+	                  e.hitFlashUntil = Date.now() + 70;
+	                  e.renderScaleX = 1.18;
+	                  e.renderScaleY = 0.84;
+	                }
                 
                 // Explosion knockback
                 const angle = Math.atan2(e.y - b.y, e.x - b.x);
@@ -1918,15 +1921,17 @@ export default function App() {
                 e.stateTimer = 60; // 1s
               }
               
-              shake.current = Math.max(shake.current, 2);
-              
-              for(let i=0; i<3; i++) {
-                particles.current.push({
-                  x: e.x + (Math.random()-0.5)*e.width, y: e.y + (Math.random()-0.5)*e.height,
-                  vx: (Math.random()-0.5)*4 + b.vx*0.1, vy: (Math.random()-0.5)*4 + b.vy*0.1,
-                  life: 15 + Math.random()*10, text: '·', color: '#000000'
-                });
-              }
+	              shake.current = Math.max(shake.current, b.type === 'wordart' ? 4 : 3);
+	              
+	              for(let i=0; i<5; i++) {
+	                particles.current.push({
+	                  x: e.x + (Math.random()-0.5)*e.width, y: e.y + (Math.random()-0.5)*e.height,
+	                  vx: (Math.random()-0.5)*4 + b.vx*0.1, vy: (Math.random()-0.5)*4 + b.vy*0.1,
+	                  life: 14 + Math.random()*12,
+	                  text: ['//', '{}', ';', '::', '=>'][Math.floor(Math.random() * 5)],
+	                  color: '#2b2b2b'
+	                });
+	              }
               
               const hex = Math.floor(finalDamage).toString(16).toUpperCase();
               let dmgText = b.isCrit ? `!!0x${hex}` : `0x${hex}`;
@@ -2247,17 +2252,18 @@ export default function App() {
         for (const e of room.enemies) {
           if (l.hitTargets.has(e.id)) continue;
           
-          // Simple line-circle collision approximation
-          const dx = e.x - l.x;
-          const dy = e.y - l.y;
-          const dist = Math.hypot(dx, dy);
-          const angleToEnemy = Math.atan2(dy, dx);
-          let angleDiff = Math.abs(angleToEnemy - l.angle);
-          while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-          while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-          
-          if (dist < l.range && Math.abs(angleDiff) < 0.1) {
-            l.hitTargets.add(e.id);
+	          // Treat the laser as a finite ribbon so the gameplay hit area matches the rendered width.
+	          const dx = e.x - l.x;
+	          const dy = e.y - l.y;
+	          const dirX = Math.cos(l.angle);
+	          const dirY = Math.sin(l.angle);
+	          const along = dx * dirX + dy * dirY;
+	          const perp = Math.abs(dx * dirY - dy * dirX);
+	          const enemyRadius = Math.max(e.width, e.height) * 0.5;
+	          const hitHalfWidth = Math.max(8, l.width * 0.55);
+	          
+	          if (along >= -enemyRadius && along <= l.range + enemyRadius && perp <= hitHalfWidth + enemyRadius) {
+	            l.hitTargets.add(e.id);
             
             const ownerPlayer = room.players[l.owner];
             let finalDamage = l.damage;
@@ -2282,7 +2288,10 @@ export default function App() {
             if (ownerPlayer && ownerPlayer.specificUpgrades.includes('sparkline_resonance') && (e as any).isSlowed) finalDamage *= 1.8;
             if (ownerPlayer && ownerPlayer.specificUpgrades.includes('sparkline_execute') && e.hp / e.maxHp < 0.25 && e.type !== 'EliteBoss' && e.type !== 'MiniBoss') finalDamage *= 3;
 
-            e.hp -= finalDamage;
+	            e.hp -= finalDamage;
+	            e.hitFlashUntil = Date.now() + 55;
+	            e.renderScaleX = 1.1;
+	            e.renderScaleY = 0.9;
             
             // Strikethrough execute
             if (l.isStrikethrough && e.hp > 0 && e.hp / e.maxHp <= 0.2 && e.type !== 'EliteBoss' && e.type !== 'MiniBoss') {
@@ -2308,7 +2317,7 @@ export default function App() {
               (e as any).isSlowed = true;
             }
             
-            shake.current = Math.max(shake.current, 1);
+	            shake.current = Math.max(shake.current, l.isCannon ? 6 : 2);
             
             const hex = Math.floor(finalDamage).toString(16).toUpperCase();
             let dmgText = l.isCrit ? `!!0x${hex}` : `0x${hex}`;
@@ -2316,8 +2325,8 @@ export default function App() {
             particles.current.push({
               x: e.x + (Math.random()-0.5)*30, y: e.y + (Math.random()-0.5)*30,
               vx: (Math.random()-0.5)*6, vy: (Math.random()-0.5)*6 - 2,
-              life: 20 + Math.random()*10, text: dmgText, color: l.isCrit ? '#e81123' : '#0078d7'
-            });
+	              life: 20 + Math.random()*10, text: dmgText, color: l.isCrit ? '#a63e32' : '#4f5b66'
+	            });
             
             // Format Painter
             if (ownerPlayer && ownerPlayer.generalUpgrades.includes('format_painter') && Math.random() < 0.2) {
@@ -2517,14 +2526,81 @@ export default function App() {
     if (!ctx) return;
 
     const render = () => {
-      const cnFont = (size: number) =>
-        `bold ${size}px "Microsoft YaHei UI","微软雅黑","PingFang SC",sans-serif`;
-      const codeFont = (size: number) =>
-        `${size}px Consolas,"Courier New",monospace`;
-      const boldCode = (size: number) =>
-        `bold ${size}px Consolas,"Courier New",monospace`;
+	      const cnFont = (size: number) =>
+	        `bold ${size}px "Microsoft YaHei UI","微软雅黑","PingFang SC",sans-serif`;
+	      const codeFont = (size: number) =>
+	        `${size}px Consolas,"Courier New",monospace`;
+	      const boldCode = (size: number) =>
+	        `bold ${size}px Consolas,"Courier New",monospace`;
+	      const graphite = '#141414';
+	      const graphiteSoft = '#2b2b2b';
+	      const graphiteMid = '#575757';
+	      const paper = '#f3f1ea';
+	      const paperDark = '#ddd7ca';
+	      const accentHot = '#8a4b36';
+	      const accentWarn = '#a8642a';
+	      const accentCold = '#4f5b66';
+	      const drawCodeMass = (
+	        x: number,
+	        y: number,
+	        w: number,
+	        h: number,
+	        tokens: string[],
+	        options?: {
+	          fill?: string;
+	          stroke?: string;
+	          glow?: string;
+	          text?: string;
+	          lineStep?: number;
+	          radius?: number;
+	          alpha?: number;
+	        }
+	      ) => {
+	        const {
+	          fill = paper,
+	          stroke = graphiteSoft,
+	          glow,
+	          text = graphite,
+	          lineStep = 9,
+	          radius = 6,
+	          alpha = 1
+	        } = options || {};
+	        ctx.save();
+	        ctx.translate(x, y);
+	        ctx.globalAlpha *= alpha;
+	        ctx.fillStyle = fill;
+	        ctx.beginPath();
+	        ctx.roundRect(-w / 2, -h / 2, w, h, radius);
+	        ctx.fill();
+	        if (glow) {
+	          ctx.shadowColor = glow;
+	          ctx.shadowBlur = 10;
+	        }
+	        ctx.strokeStyle = stroke;
+	        ctx.lineWidth = 1.5;
+	        ctx.stroke();
+	        ctx.shadowBlur = 0;
+	        ctx.beginPath();
+	        ctx.rect(-w / 2 + 2, -h / 2 + 2, w - 4, h - 4);
+	        ctx.clip();
+	        ctx.font = codeFont(Math.max(7, Math.floor(lineStep * 0.9)));
+	        ctx.textAlign = 'left';
+	        ctx.textBaseline = 'middle';
+	        for (let row = 0; row < Math.max(1, Math.floor((h - 8) / lineStep)); row++) {
+	          const rowY = -h / 2 + 6 + row * lineStep;
+	          for (let lane = 0; lane < 5; lane++) {
+	            const token = tokens[(row + lane + Math.floor(Date.now() / 140)) % tokens.length];
+	            const offset = (Date.now() * (0.06 + row * 0.01) + lane * 26 + row * 9) % (w + 56);
+	            const drawX = offset - w / 2 - 28;
+	            ctx.fillStyle = text;
+	            ctx.globalAlpha = alpha * (0.2 + ((lane + 1) / 5) * 0.4);
+	            ctx.fillText(token, drawX, rowY);
+	          }
+	        }
+	        ctx.restore();
+	      };
 
-      const gameState = gameStateRef.current;
+	      const gameState = gameStateRef.current;
       
       if (canvas.width !== container.clientWidth || canvas.height !== container.clientHeight) {
         canvas.width = container.clientWidth;
@@ -2815,14 +2891,29 @@ export default function App() {
         ctx.setLineDash([]);
       });
 
-      gameState.enemies?.forEach((e: any) => {
-        if (!isVisible(e.x - e.width/2, e.y - e.height/2, e.width, e.height)) return;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        const now = Date.now();
+	      gameState.enemies?.forEach((e: any) => {
+	        if (!isVisible(e.x - e.width/2, e.y - e.height/2, e.width, e.height)) return;
+	        ctx.textAlign = 'center';
+	        ctx.textBaseline = 'middle';
+	        const now = Date.now();
+	        const isHitFlash = !!e.hitFlashUntil && now < e.hitFlashUntil;
+	        const flashRatio = isHitFlash ? (e.hitFlashUntil - now) / 70 : 0;
+	        const scaleX = e.renderScaleX ? 1 + (e.renderScaleX - 1) * flashRatio : 1;
+	        const scaleY = e.renderScaleY ? 1 + (e.renderScaleY - 1) * flashRatio : 1;
+	        if (!isHitFlash) {
+	          e.renderScaleX = 1;
+	          e.renderScaleY = 1;
+	        }
+	        ctx.save();
+	        ctx.translate(e.x, e.y);
+	        ctx.scale(scaleX, scaleY);
+	        ctx.translate(-e.x, -e.y);
+	        if (isHitFlash) {
+	          ctx.globalAlpha = 0.92 + flashRatio * 0.08;
+	        }
 
-        // ── FormatBrush 冲刺预警线（保留现有逻辑，只改颜色） ──
-        if (e.type === 'FormatBrush' && e.state === 'warning') {
+	        // ── FormatBrush 冲刺预警线（保留现有逻辑，只改颜色） ──
+	        if (e.type === 'FormatBrush' && e.state === 'warning') {
           ctx.beginPath();
           ctx.moveTo(e.x, e.y);
           ctx.lineTo(e.dashTargetX || e.x, e.dashTargetY || e.y);
@@ -2833,25 +2924,32 @@ export default function App() {
           ctx.setLineDash([]);
         }
 
-        if (e.type === 'Minion') {
-          // 单个大字：误
-          ctx.font = cnFont(17);
-          ctx.fillStyle = '#555555';
-          ctx.fillText('误', e.x, e.y);
+	        if (e.type === 'Minion') {
+	          drawCodeMass(e.x, e.y, e.width, e.height, ['err', 'null', 'todo', '???', 'void'], {
+	            fill: isHitFlash ? paperDark : '#ece8dd',
+	            stroke: isHitFlash ? accentWarn : '#6f685d',
+	            text: graphiteSoft,
+	            radius: 4,
+	            lineStep: 8
+	          });
+	          ctx.font = cnFont(17);
+	          ctx.fillStyle = isHitFlash ? accentWarn : '#555555';
+	          ctx.fillText('误', e.x, e.y);
 
-        } else if (e.type === 'Elite') {
-          // 背景框
-          ctx.fillStyle = 'rgba(248,81,73,0.10)';
-          ctx.fillRect(e.x - e.width/2, e.y - e.height/2, e.width, e.height);
-          const alpha = 0.55 + 0.45 * Math.sin(now / 180);
-          ctx.strokeStyle = `rgba(248,81,73,${alpha})`;
-          ctx.lineWidth = 1.5;
-          ctx.strokeRect(e.x - e.width/2, e.y - e.height/2, e.width, e.height);
-          // 乱码文字，每500ms切换
-          const elitePool = ['烫烫','锟斤拷','乱码','异常'];
-          ctx.font = cnFont(15);
-          ctx.fillStyle = '#f85149';
-          ctx.fillText(elitePool[Math.floor(now/500 + e.id) % elitePool.length], e.x, e.y);
+	        } else if (e.type === 'Elite') {
+	          const alpha = 0.55 + 0.45 * Math.sin(now / 180);
+	          drawCodeMass(e.x, e.y, e.width + 8, e.height + 8, ['panic()', 'fatal', '#ERR', 'stack', 'null'], {
+	            fill: isHitFlash ? '#2e221d' : '#231f1b',
+	            stroke: `rgba(138,75,54,${alpha + 0.25})`,
+	            text: isHitFlash ? paper : paperDark,
+	            glow: `rgba(138,75,54,${alpha})`,
+	            radius: 5,
+	            lineStep: 8
+	          });
+	          const elitePool = ['烫烫','锟斤拷','乱码','异常'];
+	          ctx.font = cnFont(15);
+	          ctx.fillStyle = isHitFlash ? paper : '#b97556';
+	          ctx.fillText(elitePool[Math.floor(now/500 + e.id) % elitePool.length], e.x, e.y);
 
         } else if (e.type === 'MINION') {
           // 爆炸小怪，接近时加速闪烁
@@ -2860,11 +2958,17 @@ export default function App() {
           ctx.fillStyle = fastFlash ? '#f85149' : '#d29922';
           ctx.fillText('炸', e.x, e.y);
 
-        } else if (e.type === 'Value') {
-          const valPool = ['#N/A','#VALUE!','算错了','#NUM!','#NULL!'];
-          ctx.font = boldCode(13);
-          ctx.fillStyle = '#d83b01';
-          ctx.fillText(valPool[Math.floor(now/700 + e.id) % valPool.length], e.x, e.y);
+	        } else if (e.type === 'Value') {
+	          drawCodeMass(e.x, e.y, e.width + 6, e.height + 6, ['#N/A', '#VALUE!', 'NaN', '#ERR'], {
+	            fill: isHitFlash ? '#2b201a' : '#1f1c19',
+	            stroke: isHitFlash ? accentWarn : accentHot,
+	            text: paperDark,
+	            radius: 5
+	          });
+	          const valPool = ['#N/A','#VALUE!','算错了','#NUM!','#NULL!'];
+	          ctx.font = boldCode(13);
+	          ctx.fillStyle = isHitFlash ? paper : '#8a4b36';
+	          ctx.fillText(valPool[Math.floor(now/700 + e.id) % valPool.length], e.x, e.y);
           // 4个卫星'?'绕行
           const st = now * 0.002;
           for (let i = 0; i < 4; i++) {
@@ -2876,10 +2980,16 @@ export default function App() {
             );
           }
 
-        } else if (e.type === 'FormatBrush') {
-          ctx.font = cnFont(17);
-          ctx.fillStyle = e.state === 'warning' ? '#f85149' : '#ffb900';
-          ctx.fillText('刷', e.x, e.y);
+	        } else if (e.type === 'FormatBrush') {
+	          drawCodeMass(e.x, e.y, e.width, e.height, ['paint', 'fmt', 'copy', 'mask'], {
+	            fill: '#f0ece2',
+	            stroke: e.state === 'warning' ? accentHot : '#7a705f',
+	            text: graphiteSoft,
+	            radius: 5
+	          });
+	          ctx.font = cnFont(17);
+	          ctx.fillStyle = e.state === 'warning' ? accentHot : accentWarn;
+	          ctx.fillText('刷', e.x, e.y);
           if (e.state === 'warning' && e.dashTargetX !== undefined) {
             const da = Math.atan2((e.dashTargetY||e.y)-e.y, (e.dashTargetX||e.x)-e.x);
             ctx.font = boldCode(12);
@@ -2887,48 +2997,69 @@ export default function App() {
             ctx.fillText('>>>', e.x + Math.cos(da)*32, e.y + Math.sin(da)*32);
           }
 
-        } else if (e.type === 'FreezeCell') {
-          ctx.fillStyle = '#e0f2fe';
-          ctx.fillRect(e.x - e.width/2, e.y - e.height/2, e.width, e.height);
-          ctx.strokeStyle = '#00bcd4';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(e.x - e.width/2, e.y - e.height/2, e.width, e.height);
-          ctx.fillStyle = '#0284c7';
-          ctx.font = codeFont(10);
-          ctx.fillText('Object.freeze({', e.x, e.y - 5);
-          ctx.fillStyle = '#64748b';
-          ctx.fillText('})', e.x, e.y + 7);
+	        } else if (e.type === 'FreezeCell') {
+	          drawCodeMass(e.x, e.y, e.width, e.height, ['freeze', 'lock()', 'pane', 'const'], {
+	            fill: '#e8ebe9',
+	            stroke: isHitFlash ? paper : accentCold,
+	            text: graphiteSoft,
+	            radius: 3
+	          });
+	          ctx.fillStyle = accentCold;
+	          ctx.font = codeFont(10);
+	          ctx.fillText('Object.freeze({', e.x, e.y - 5);
+	          ctx.fillStyle = '#64748b';
+	          ctx.fillText('})', e.x, e.y + 7);
 
-        } else if (e.type === 'ProtectedView') {
-          ctx.font = cnFont(17);
-          ctx.fillStyle = '#107c41';
-          ctx.fillText('锁', e.x, e.y);
+	        } else if (e.type === 'ProtectedView') {
+	          drawCodeMass(e.x, e.y, e.width, e.height, ['auth', 'locked', 'readOnly'], {
+	            fill: '#efede6',
+	            stroke: '#76716a',
+	            text: graphiteSoft,
+	            radius: 4
+	          });
+	          ctx.font = cnFont(17);
+	          ctx.fillStyle = graphiteSoft;
+	          ctx.fillText('锁', e.x, e.y);
           if (e.facingAngle !== undefined) {
             ctx.font = boldCode(12);
             ctx.fillStyle = '#00a2ed';
             ctx.fillText('>>>', e.x + Math.cos(e.facingAngle)*30, e.y + Math.sin(e.facingAngle)*30);
           }
 
-        } else if (e.type === 'MergedCell') {
-          ctx.fillStyle = '#ede9fe';
-          ctx.fillRect(e.x - e.width/2, e.y - e.height/2, e.width, e.height);
-          ctx.strokeStyle = '#8b5cf6';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(e.x - e.width/2, e.y - e.height/2, e.width, e.height);
-          ctx.fillStyle = '#6d28d9';
-          ctx.font = cnFont(13);
-          ctx.fillText('合并单元格', e.x, e.y);
+	        } else if (e.type === 'MergedCell') {
+	          drawCodeMass(e.x, e.y, e.width, e.height, ['merge', 'spill', 'stack', 'blob', 'grid'], {
+	            fill: isHitFlash ? '#2f2d29' : '#262420',
+	            stroke: isHitFlash ? paper : '#7a6d57',
+	            text: paperDark,
+	            radius: 3,
+	            lineStep: 10
+	          });
+	          ctx.fillStyle = isHitFlash ? paper : '#cbc3b1';
+	          ctx.font = cnFont(13);
+	          ctx.fillText('合并单元格', e.x, e.y);
 
-        } else if (e.type === 'REF') {
-          const refFlash = Math.floor(now / 280 + e.id) % 2 === 0;
-          ctx.font = cnFont(17);
-          ctx.fillStyle = refFlash ? '#f85149' : '#ff8c7a';
-          ctx.fillText('空', e.x, e.y);
+	        } else if (e.type === 'REF') {
+	          const refFlash = Math.floor(now / 280 + e.id) % 2 === 0;
+	          drawCodeMass(e.x, e.y, e.width, e.height, ['#REF!', 'link', 'null', 'void'], {
+	            fill: '#1f1c19',
+	            stroke: refFlash ? accentHot : '#5e514a',
+	            text: paperDark,
+	            radius: 5
+	          });
+	          ctx.font = cnFont(17);
+	          ctx.fillStyle = refFlash ? '#b06045' : '#8b7368';
+	          ctx.fillText('空', e.x, e.y);
 
-        } else if (e.type === 'VLOOKUP') {
-          ctx.font = cnFont(17);
-          ctx.fillStyle = '#0078d7';
-          ctx.fillText('查', e.x, e.y);
+	        } else if (e.type === 'VLOOKUP') {
+	          drawCodeMass(e.x, e.y, e.width + 4, e.height + 4, ['lookup', 'col', 'match', 'idx'], {
+	            fill: '#ece8df',
+	            stroke: isHitFlash ? accentWarn : '#64605a',
+	            text: graphiteSoft,
+	            radius: 5
+	          });
+	          ctx.font = cnFont(17);
+	          ctx.fillStyle = isHitFlash ? accentHot : graphiteSoft;
+	          ctx.fillText('查', e.x, e.y);
           if (e.state === 'aiming' && e.dashTargetX !== undefined) {
             const va = Math.atan2((e.dashTargetY||e.y)-e.y, (e.dashTargetX||e.x)-e.x);
             [0.35, 0.65, 1.0].forEach((alpha, i) => {
@@ -2941,32 +3072,46 @@ export default function App() {
             });
           }
 
-        } else if (e.type === 'MACRO') {
-          ctx.font = cnFont(17);
-          ctx.fillStyle = '#16a34a';
-          ctx.fillText('毒', e.x, e.y);
+	        } else if (e.type === 'MACRO') {
+	          drawCodeMass(e.x, e.y, e.width + 8, e.height + 6, ['Sub()', 'Run', 'Exec', 'Loop', 'End'], {
+	            fill: '#1b1b1b',
+	            stroke: isHitFlash ? paper : '#5c5c5c',
+	            text: paperDark,
+	            radius: 5
+	          });
+	          ctx.font = cnFont(17);
+	          ctx.fillStyle = isHitFlash ? paper : '#bdb5a6';
+	          ctx.fillText('毒', e.x, e.y);
 
-        } else if (e.type === 'SplitCell') {
-          ctx.font = cnFont(15);
-          ctx.fillStyle = '#e3008c';
-          ctx.fillText('拆', e.x, e.y);
+	        } else if (e.type === 'SplitCell') {
+	          drawCodeMass(e.x, e.y, e.width, e.height, ['split', 'part', 'cell'], {
+	            fill: '#efe9e1',
+	            stroke: '#6f6057',
+	            text: graphiteSoft,
+	            radius: 4
+	          });
+	          ctx.font = cnFont(15);
+	          ctx.fillStyle = '#7a5a50';
+	          ctx.fillText('拆', e.x, e.y);
 
-        } else if (e.type === 'MiniBoss') {
-          ctx.fillStyle = '#1e1e1e';
-          ctx.fillRect(e.x - e.width/2, e.y - e.height/2, e.width, e.height);
-          ctx.strokeStyle = '#d29922';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(e.x - e.width/2, e.y - e.height/2, e.width, e.height);
-          ctx.fillStyle = '#d29922';
-          ctx.font = codeFont(11);
-          ctx.fillText('// TODO: fix later', e.x, e.y - 4);
-          ctx.fillStyle = '#888888';
+	        } else if (e.type === 'MiniBoss') {
+	          drawCodeMass(e.x, e.y, e.width, e.height, ['TODO', 'never', 'later', 'fix', 'merge'], {
+	            fill: '#171717',
+	            stroke: '#7a5e36',
+	            text: paperDark,
+	            radius: 4,
+	            lineStep: 9
+	          });
+	          ctx.fillStyle = '#b08953';
+	          ctx.font = codeFont(11);
+	          ctx.fillText('// TODO: fix later', e.x, e.y - 4);
+	          ctx.fillStyle = '#888888';
           ctx.font = codeFont(10);
           ctx.fillText('//  (never)', e.x, e.y + 8);
 
-        } else if (e.type === 'EliteBoss') {
-          // ── 黄金角螺旋字符团 ──
-          const bossCharCN = ['错','误','乱','码','烫','锟','斤','拷','空','异','常','崩'];
+	        } else if (e.type === 'EliteBoss') {
+	          // ── 黄金角螺旋字符团 ──
+	          const bossCharCN = ['错','误','乱','码','烫','锟','斤','拷','空','异','常','崩'];
           const bossCharASCII = ['#','!','@','$','%','&','*','?','0x','FF','NaN','//'];
           const t = now * 0.001;
           const hpR = Math.max(0, e.hp / e.maxHp);
@@ -2978,10 +3123,10 @@ export default function App() {
             const cx = e.x + Math.cos(ga + t * 0.25) * r;
             const cy = e.y + Math.sin(ga + t * 0.25) * r;
             if (!isVisible(cx - 12, cy - 12, 24, 24)) continue;
-            const sz = Math.floor(10 + (1 - i / 120) * 14); // 中心大外圈小
-            const bright = Math.floor(155 + (1 - hpR) * 100);
-            const green = Math.floor(hpR * 50);
-            ctx.fillStyle = `rgb(${bright},${green},55)`;
+	            const sz = Math.floor(10 + (1 - i / 120) * 14); // 中心大外圈小
+	            const bright = Math.floor(155 + (1 - hpR) * 100);
+	            const green = Math.floor(hpR * 50);
+	            ctx.fillStyle = `rgb(${bright},${green},55)`;
             // 内圈(i<40)用中文，外圈用ASCII
             ctx.font = i < 40 ? cnFont(sz) : boldCode(sz);
             ctx.textAlign = 'center';
@@ -2993,12 +3138,13 @@ export default function App() {
           // Boss中心 HP 百分比
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillStyle = '#f85149';
-          ctx.font = boldCode(13);
-          ctx.fillText(`BOSS ${Math.floor(hpR * 100)}%`, e.x, e.y - e.height/2 - 18);
-        }
+	          ctx.fillStyle = accentHot;
+	          ctx.font = boldCode(13);
+	          ctx.fillText(`BOSS ${Math.floor(hpR * 100)}%`, e.x, e.y - e.height/2 - 18);
+	        }
+	        ctx.restore();
 
-        // ── HP条（MiniBoss/EliteBoss/特殊怪，保留现有显示条件） ──
+	        // ── HP条（MiniBoss/EliteBoss/特殊怪，保留现有显示条件） ──
         if (['MiniBoss','EliteBoss','FreezeCell','MergedCell','REF','VLOOKUP','MACRO'].includes(e.type)) {
           ctx.fillStyle = '#e1dfdd';
           ctx.fillRect(e.x - e.width/2, e.y - e.height/2 - 10, e.width, 4);
@@ -3145,48 +3291,52 @@ export default function App() {
           }
           ctx.restore();
 
-        } else if (b.type === 'array') {
-          ctx.save();
-          ctx.translate(b.x, b.y);
-          ctx.rotate(b.angle || 0);
-          ctx.font = codeFont(12);
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          
-          // 击中后变红，否则绿色
-          ctx.fillStyle = b.hit ? '#f85149' : '#3fb950';
-          const arrText = b.id % 2 === 0 ? 'arr[i]' : 'i++';
-          ctx.fillText(arrText, 0, 0);
+	        } else if (b.type === 'array') {
+	          ctx.save();
+	          ctx.translate(b.x, b.y);
+	          ctx.rotate(b.angle || 0);
+	          drawCodeMass(0, 0, 34 + (b.size || 0) * 0.35, 18 + (b.size || 0) * 0.18, ['arr[i]', 'i++', 'fill', '[]'], {
+	            fill: '#f1eee6',
+	            stroke: b.isCrit ? accentHot : '#6e675f',
+	            text: graphiteSoft,
+	            radius: 4,
+	            lineStep: 7
+	          });
+	          ctx.font = boldCode(10);
+	          ctx.textAlign = 'center';
+	          ctx.textBaseline = 'middle';
+	          ctx.fillStyle = b.isCrit ? accentHot : graphiteSoft;
+	          const arrText = b.id % 2 === 0 ? 'arr[i]' : 'i++';
+	          ctx.fillText(arrText, 0, 0);
           
           if (b.isStrikethrough) {
             ctx.beginPath();
             ctx.moveTo(-15, 0);
             ctx.lineTo(15, 0);
-            ctx.strokeStyle = '#f85149';
+	            ctx.strokeStyle = accentHot;
             ctx.lineWidth = 2;
             ctx.stroke();
           }
           ctx.restore();
 
-        } else if (b.type === 'comment') {
-          ctx.save();
-          ctx.translate(b.x, b.y);
-          ctx.rotate(b.angle || 0);
-          
-          // 深灰底色，黄色边框
-          ctx.fillStyle = '#2d2d2d';
-          ctx.beginPath();
-          ctx.roundRect(-20, -10, 40, 20, 4);
-          ctx.fill();
-          ctx.strokeStyle = '#d29922';
-          ctx.lineWidth = 1.5;
-          ctx.stroke();
-          
-          ctx.font = codeFont(10);
-          ctx.fillStyle = '#d29922';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText('throw Error()', 0, 0);
+	        } else if (b.type === 'comment') {
+	          ctx.save();
+	          ctx.translate(b.x, b.y);
+	          ctx.rotate(b.angle || 0);
+	          drawCodeMass(0, 0, 42, 22, ['throw', 'Error()', 'panic', 'trace'], {
+	            fill: '#22201d',
+	            stroke: b.isUlt ? accentHot : '#6e5c44',
+	            text: paperDark,
+	            glow: b.isUlt ? 'rgba(138,75,54,0.35)' : undefined,
+	            radius: 4,
+	            lineStep: 7
+	          });
+	          
+	          ctx.font = codeFont(10);
+	          ctx.fillStyle = b.isUlt ? paper : '#d2c4ab';
+	          ctx.textAlign = 'center';
+	          ctx.textBaseline = 'middle';
+	          ctx.fillText('throw Error()', 0, 0);
           
           // 引信火花
           const sparkX = -20 + (now/20)%40;
@@ -3202,18 +3352,24 @@ export default function App() {
             ctx.stroke();
           }
           ctx.restore();
-        } else {
-          ctx.save();
-          ctx.translate(b.x, b.y);
-          ctx.rotate(Math.atan2(b.vy, b.vx));
-          ctx.fillStyle = b.textColor || '#000000';
-          let fontStr = '';
-          if (b.isItalic) fontStr += 'italic ';
-          if (b.isBold) fontStr += 'bold ';
-          fontStr += `${b.size}px Calibri`;
-          ctx.font = fontStr;
-          
-          if (b.isCrit) ctx.fillStyle = '#e81123';
+	        } else {
+	          ctx.save();
+	          ctx.translate(b.x, b.y);
+	          ctx.rotate(Math.atan2(b.vy, b.vx));
+	          drawCodeMass(0, 0, 30 + (b.size || 0) * 0.5, 16 + (b.size || 0) * 0.22, ['txt', 'col', 'fmt', '{}'], {
+	            fill: '#f1efe8',
+	            stroke: b.isCrit ? accentHot : '#6e6a61',
+	            text: graphiteSoft,
+	            radius: 4,
+	            lineStep: 7
+	          });
+	          let fontStr = '';
+	          if (b.isItalic) fontStr += 'italic ';
+	          if (b.isBold) fontStr += 'bold ';
+	          fontStr += `${Math.max(10, b.size * 0.75)}px Calibri`;
+	          ctx.font = fontStr;
+	          
+	          ctx.fillStyle = b.isCrit ? accentHot : graphiteSoft;
           
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
@@ -3261,44 +3417,65 @@ export default function App() {
         ctx.rotate(l.angle);
         const now = Date.now();
         
-        if (l.type === 'sparkline') {
-          const isCannon = l.isCannon;
-          const alpha = Math.max(0, Math.pow(l.life / l.maxLife, 1.8));
-          
-          if (isCannon) {
-            // 巨型激光：大号重复字符
-            ctx.shadowColor = `rgba(0,0,0,${alpha})`;
-            ctx.shadowBlur = 15;
-            ctx.fillStyle = `rgba(50,50,50,${alpha})`;
-            ctx.font = boldCode(36);
-            const charCount = Math.floor(l.range / 20);
-            for (let i = 0; i < charCount; i++) {
-              const dist = i * 20;
-              const char = '01NaNnull{}[]()=>undefinedvoid0xFFerr%$#@!'[(Math.floor(now/50)+i)%42];
-              const yOffset = Math.sin(dist*0.05 + now*0.01) * 15;
-              for (let w = -2; w <= 2; w++) {
-                ctx.fillText(char, dist, yOffset + w * 25);
-              }
-            }
-          } else {
-            // 普通激光：前向喷射字符流（无闪烁）
-            ctx.font = codeFont(13);
-            const charCount = Math.floor(l.range / 10);
-            const forwardOffset = (1 - alpha) * 24;
-            for (let i = 0; i < charCount; i++) {
-              const dist = i * 10;
-              const char = '01NaNnull{}[]()=>undefinedvoid0xFFerr%$#@!'[(Math.floor(now / 45) - i + 84) % 42];
-              const yOffset = Math.sin(dist * 0.02) * 1.2;
-              const fade = Math.max(0, 1 - (dist / (l.range * 0.65)));
-              ctx.fillStyle = `rgba(20,20,20,${alpha * fade})`;
-
-              const widthMultiplier = l.width > 20 ? 2 : 1;
-              for (let w = -widthMultiplier; w <= widthMultiplier; w++) {
-                ctx.fillText(char, dist + forwardOffset, yOffset + w * 10);
-              }
-            }
-          }
-          ctx.shadowBlur = 0;
+	        if (l.type === 'sparkline') {
+	          const isCannon = l.isCannon;
+	          const alpha = Math.max(0, Math.pow(l.life / l.maxLife, 1.8));
+	          const beamHalfWidth = Math.max(10, l.width * 0.55);
+	          
+	          if (isCannon) {
+	            ctx.fillStyle = `rgba(20,20,20,${alpha * 0.7})`;
+	            ctx.fillRect(0, -beamHalfWidth, l.range, beamHalfWidth * 2);
+	            ctx.strokeStyle = `rgba(221,215,202,${alpha * 0.55})`;
+	            ctx.lineWidth = 2;
+	            ctx.strokeRect(0, -beamHalfWidth, l.range, beamHalfWidth * 2);
+	            ctx.save();
+	            ctx.beginPath();
+	            ctx.rect(0, -beamHalfWidth, l.range, beamHalfWidth * 2);
+	            ctx.clip();
+	            ctx.font = boldCode(18);
+	            ctx.textAlign = 'left';
+	            ctx.textBaseline = 'middle';
+	            const charCount = Math.floor(l.range / 18);
+	            const tokens = ['ERR', 'NULL', '0xFF', 'void', 'stack', 'panic'];
+	            for (let i = 0; i < charCount; i++) {
+	              const dist = i * 18;
+	              const token = tokens[(i + Math.floor(now / 45)) % tokens.length];
+	              const yOffset = Math.sin(dist * 0.03 + now * 0.012) * (beamHalfWidth * 0.35);
+	              ctx.fillStyle = `rgba(243,241,234,${alpha * 0.18})`;
+	              for (let lane = -2; lane <= 2; lane++) {
+	                ctx.fillText(token, dist, yOffset + lane * (beamHalfWidth * 0.38));
+	              }
+	            }
+	            ctx.restore();
+	          } else {
+	            ctx.fillStyle = `rgba(24,24,24,${alpha * 0.25})`;
+	            ctx.fillRect(0, -beamHalfWidth, l.range, beamHalfWidth * 2);
+	            ctx.strokeStyle = `rgba(93,93,93,${alpha * 0.7})`;
+	            ctx.lineWidth = 1;
+	            ctx.strokeRect(0, -beamHalfWidth, l.range, beamHalfWidth * 2);
+	            ctx.save();
+	            ctx.beginPath();
+	            ctx.rect(0, -beamHalfWidth, l.range, beamHalfWidth * 2);
+	            ctx.clip();
+	            ctx.font = codeFont(11);
+	            ctx.textAlign = 'left';
+	            ctx.textBaseline = 'middle';
+	            const charCount = Math.floor(l.range / 18);
+	            const forwardOffset = (1 - alpha) * 20;
+	            const tokens = ['//', '=>', '{}', '01', 'NaN', '[]', 'err'];
+	            for (let i = 0; i < charCount; i++) {
+	              const dist = i * 18;
+	              const token = tokens[(Math.floor(now / 55) + i) % tokens.length];
+	              const fade = Math.max(0.18, 1 - dist / l.range);
+	              const jitter = Math.sin(now * 0.01 + i * 0.7) * Math.min(beamHalfWidth * 0.22, 5);
+	              ctx.fillStyle = `rgba(243,241,234,${alpha * fade * 0.32})`;
+	              for (let lane = -1; lane <= 1; lane++) {
+	                ctx.fillText(token, dist + forwardOffset, jitter + lane * Math.max(7, beamHalfWidth * 0.7));
+	              }
+	            }
+	            ctx.restore();
+	          }
+	          ctx.shadowBlur = 0;
         } else {
           ctx.fillStyle = `rgba(232,17,35,${l.life / 30})`;
           ctx.font = boldCode(24);
