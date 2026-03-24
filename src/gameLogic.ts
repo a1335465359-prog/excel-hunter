@@ -245,6 +245,12 @@ export interface Enemy {
   lastPushedBy?: number; // Bullet ID
   spawnedBy?: number;
   validationMark?: number;
+  freezeUntil?: number;
+  burnStacks?: number;
+  burnUntil?: number;
+  slowedUntil?: number;
+  summon70Triggered?: boolean;
+  summon30Triggered?: boolean;
 }
 
 export interface EnemyBullet {
@@ -264,7 +270,7 @@ export interface Puddle {
   x: number;
   y: number;
   radius: number;
-  type: 'formatPaint' | 'freeze' | 'highlight' | 'explosion' | 'blacken' | 'burn_slow' | 'vulnerable' | 'afterimage' | 'slow_zone';
+  type: 'formatPaint' | 'freeze' | 'highlight' | 'explosion' | 'blacken' | 'burn_slow' | 'vulnerable' | 'afterimage' | 'slow_zone' | 'spreadsheet';
   life: number;
   maxLife: number;
   damage?: number;
@@ -315,6 +321,7 @@ export interface Bullet {
   momentumBonus?: number;
   distancePushed?: number;
   leavesAfterimage?: boolean;
+  isBurnStack?: boolean;
 }
 
 export interface Laser {
@@ -341,6 +348,9 @@ export interface Laser {
   leavesResidue?: boolean;
   hitTargets?: Set<number>;
   isCannon?: boolean;
+  aimAssist?: boolean;
+  freezeChance?: number;
+  isBurnStack?: boolean;
 }
 
 export interface MapDef {

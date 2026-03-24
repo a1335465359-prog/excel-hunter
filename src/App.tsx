@@ -19,12 +19,12 @@ function generateUpgradeChoices(room: Room, player: Player): Upgrade[] {
     'wordart_size', 'wordart_weight', 'wordart_spread', 'wordart_title', 'wordart_ult',
     'wordart_wide', 'wordart_momentum', 'wordart_shield', 'wordart_stun', 'wordart_quad',
     'sparkline_width', 'sparkline_focus', 'sparkline_bounce', 'sparkline_rapid', 'sparkline_ult',
-    'sparkline_freeze', 'sparkline_cannon', 'sparkline_reflect', 'sparkline_overclock', 'sparkline_resonance', 'sparkline_execute',
+    'sparkline_freeze', 'sparkline_cannon', 'sparkline_reflect', 'sparkline_overclock', 'sparkline_burn_stack', 'sparkline_overload', 'sparkline_resonance', 'sparkline_execute',
     'comment_size', 'comment_chain', 'comment_residue', 'comment_fast', 'comment_ult',
-    'comment_triple', 'comment_knockback', 'comment_split', 'comment_black', 'comment_super',
+    'comment_triple', 'comment_knockback', 'comment_split', 'comment_black', 'comment_super', 'comment_gravity_well',
     'array_count', 'array_split', 'array_track', 'array_fast', 'array_ult',
-    'array_overload', 'array_rapid', 'array_bounce', 'array_pierce', 'array_big', 'array_cascade',
-    'wordart_afterimage', 'comment_saturation'
+    'array_overload', 'array_rapid', 'array_bounce', 'array_pierce', 'array_big', 'array_spreadsheet', 'array_cascade',
+    'wordart_pile_driver', 'wordart_column_freeze', 'wordart_afterimage', 'comment_saturation'
   ] as SpecificUpgrade[];
   
   const formSpecific = allSpecific.filter(u => u.startsWith(form));
@@ -390,8 +390,9 @@ export default function App() {
 
       if (room.stage >= 5 && room.stageTimer === 100) {
         room.bossSpawned = true;
-        const bossCount = room.stage === 5 ? 1 : Math.floor((room.stage - 4) / 2) + 1;
+        const bossCount = room.stage >= 10 ? 3 : (room.stage >= 8 ? 2 : 1);
         for (let i = 0; i < bossCount; i++) {
+          if (room.enemies.length >= 300) break;
           const spawner = currentMap.spawners[Math.floor(Math.random() * currentMap.spawners.length)];
           let bossHp = 3300 * Math.pow(1.12, room.stage - 5);
           let spawnX = spawner.x + (Math.random() - 0.5) * 200;
@@ -421,17 +422,26 @@ export default function App() {
         const spawnCount = Math.floor(Math.random() * 3) + 1 + Math.floor(room.stage / 2);
         
         for(let i=0; i<spawnCount; i++) {
+          if (room.enemies.length >= 300) break;
           let sx = spawner.x + (Math.random() - 0.5) * 100;
           let sy = spawner.y + (Math.random() - 0.5) * 100;
           sx = Math.max(0, Math.min(currentMap.width, sx));
           sy = Math.max(0, Math.min(currentMap.height, sy));
 
           let type: EnemyType = 'Minion';
-          let baseHp = 30;
-          if (room.stage === 2) baseHp = 35;
-          else if (room.stage === 3) baseHp = 50;
-          else if (room.stage === 4) baseHp = 70;
-          else if (room.stage >= 5) baseHp = 100 + (room.stage - 5) * 15;
+          const stageBaseHp: Record<number, number> = {
+            1: 30,
+            2: 36,
+            3: 45,
+            4: 58,
+            5: 72,
+            6: 86,
+            7: 100,
+            8: 105,
+            9: 110,
+            10: 115
+          };
+          let baseHp = stageBaseHp[room.stage] ?? (115 + (room.stage - 10) * 12);
           let hp = baseHp;
           let speed = 1.0 + Math.random() * 0.5; 
           let text = ['测试文本', 'Lorem ipsum', '11111', '如题', '占位符'][Math.floor(Math.random() * 5)];
@@ -439,25 +449,29 @@ export default function App() {
           let height = 20;
 
           const r = Math.random();
-          let eliteRatio = 0;
-          if (room.stage <= 4) eliteRatio = Math.min(0.12, (room.stage - 1) * 0.04);
-          else if (room.stage === 5) eliteRatio = 0.25;
-          else eliteRatio = Math.min(0.65, 0.25 + (room.stage - 5) * 0.08);
+          const eliteRatioByStage: Record<number, number> = {
+            1: 0,
+            2: 0.02,
+            3: 0.05,
+            4: 0.10,
+            5: 0.16,
+            6: 0.23,
+            7: 0.31,
+            8: 0.40,
+            9: 0.47,
+            10: 0.55
+          };
+          const eliteRatio = eliteRatioByStage[room.stage] ?? 0.55;
 
-          let pRef = 0;
-          if (room.stage >= 5) pRef = Math.min(0.3, (room.stage - 4) * 0.05);
+          let pValue = 0, pBrush = 0, pFreeze = 0, pShield = 0, pMerged = 0, pVlookup = 0, pMacro = 0, pRef = 0;
 
-          let pValue = 0, pBrush = 0, pFreeze = 0, pShield = 0, pMerged = 0, pVlookup = 0, pMacro = 0;
-
-          if (room.stage === 2) { pValue = 0.10; }
-          else if (room.stage === 3) { pValue = 0.12; pBrush = 0.08; }
-          else if (room.stage === 4) { pValue = 0.12; pBrush = 0.10; pFreeze = 0.04; pShield = 0.05; pMacro = 0.04; }
-          else if (room.stage >= 5) {
-            pValue = 0.10;
-            pBrush = 0.10;
-            pFreeze = 0.03; 
-            pShield = 0.05;
-            pMerged = 0.05;
+          if (room.stage >= 3) pValue = 0.10;
+          if (room.stage >= 4) pBrush = 0.08;
+          if (room.stage >= 6) pFreeze = 0.03;
+          if (room.stage >= 7) pShield = 0.05;
+          if (room.stage >= 8) pMerged = 0.05;
+          if (room.stage >= 9) pRef = 0.06;
+          if (room.stage >= 10) {
             pVlookup = 0.05;
             pMacro = 0.04;
           }
@@ -494,7 +508,7 @@ export default function App() {
               speed = 2.0; 
               text = ['烫烫烫', '锟斤拷', 'NullReference'][Math.floor(Math.random() * 3)];
               width = 80;
-            } else if (room.stage >= 3 && Math.random() < 0.02) {
+            } else if (room.stage >= 10 && Math.random() < 0.02) {
               type = 'MiniBoss';
               hp = hp * 10;
               speed = 1.2;
@@ -623,6 +637,8 @@ export default function App() {
           let critChance = 0;
           let critMult = 1;
           let eliteDamageMult = 1;
+          let vlookupTrackRadius = 0;
+          let vlookupLaserAimAssist = false;
 
           if (general.includes('bold')) {
             damageMult *= 1.3;
@@ -641,6 +657,8 @@ export default function App() {
           }
           if (general.includes('vlookup')) {
             eliteDamageMult = 1.15;
+            vlookupTrackRadius = 140;
+            vlookupLaserAimAssist = true;
           }
           if (general.includes('sum')) {
             const sumBonus = Math.min(0.24, (p.sumStacks || 0) * 0.03);
@@ -672,7 +690,8 @@ export default function App() {
                 isStrikethrough: general.includes('strikethrough'),
                 momentumBonus: 0,
                 distancePushed: 0,
-                leavesAfterimage: specific.includes('wordart_afterimage')
+                leavesAfterimage: specific.includes('wordart_afterimage'),
+                trackRadius: vlookupTrackRadius
               });
             }
           };
@@ -773,7 +792,7 @@ export default function App() {
 
             if (general.includes('italic')) {
               fireRate *= 0.9;
-              bulletSpeed *= 1.15;
+              range *= 1.15;
             }
 
             if (specific.includes('sparkline_width')) {
@@ -788,6 +807,9 @@ export default function App() {
             }
             if (specific.includes('sparkline_overclock')) {
               fireRate *= 0.5;
+            }
+            if (specific.includes('sparkline_overload')) {
+              damageMult *= 1.6;
             }
 
             if (now - p.lastShot > fireRate && now > (p.sparklineVacuumUntil || 0)) {
@@ -821,10 +843,12 @@ export default function App() {
                   leavesResidue: general.includes('underline'),
                   isItalic: general.includes('italic'),
                   isStrikethrough: general.includes('strikethrough'),
-                momentumBonus: 0,
-                distancePushed: 0,
-                leavesAfterimage: specific.includes('wordart_afterimage'),
-                  stunChance: specific.includes('sparkline_freeze') ? 0.05 : 0
+                  momentumBonus: 0,
+                  distancePushed: 0,
+                  leavesAfterimage: specific.includes('wordart_afterimage'),
+                  freezeChance: specific.includes('sparkline_freeze') ? 0.05 : 0,
+                  aimAssist: vlookupLaserAimAssist,
+                  isBurnStack: specific.includes('sparkline_burn_stack')
                 } as Laser);
               };
 
@@ -833,6 +857,9 @@ export default function App() {
               if (specific.includes('sparkline_ult')) {
                 createLaser(12 * Math.PI / 180, 0.6, 0); // Increased side laser damage
                 createLaser(-12 * Math.PI / 180, 0.6, 0);
+              }
+              if (specific.includes('sparkline_overload')) {
+                p.hp = Math.max(1, p.hp - 0.5);
               }
               
               fireCtrlC(finalDamage);
@@ -910,9 +937,10 @@ export default function App() {
                   leavesResidue: general.includes('underline') || specific.includes('comment_black'),
                   isItalic: general.includes('italic'),
                   isStrikethrough: general.includes('strikethrough'),
-                momentumBonus: 0,
-                distancePushed: 0,
-                leavesAfterimage: specific.includes('wordart_afterimage')
+                  momentumBonus: 0,
+                  distancePushed: 0,
+                  leavesAfterimage: specific.includes('wordart_afterimage'),
+                  trackRadius: vlookupTrackRadius > 0 ? 120 : 0
                 } as Bullet);
               }
               
@@ -986,7 +1014,7 @@ export default function App() {
                   eliteDamageMult: eliteDamageMult,
                   splitsLeft: specific.includes('array_split') ? 1 : 0,
                   bouncesLeft: specific.includes('array_bounce') ? 1 : 0,
-                  trackRadius: specific.includes('array_track') ? 160 : 0,
+                  trackRadius: (specific.includes('array_track') ? 160 : 0) + (vlookupTrackRadius > 0 ? 80 : 0),
                   isHighlight: general.includes('highlight'),
                   leavesResidue: general.includes('underline'),
                   isItalic: general.includes('italic'),
@@ -1166,7 +1194,15 @@ export default function App() {
 
       for (let i = room.enemies.length - 1; i >= 0; i--) {
         const e = room.enemies[i];
+        if (e.slowedUntil && Date.now() >= e.slowedUntil) {
+          (e as any).isSlowed = false;
+        }
         if (e.validationMark && (Date.now() - e.validationMark) > 4000) delete e.validationMark;
+        if (e.burnUntil && Date.now() < e.burnUntil) {
+          e.hp -= (0.08 + (e.burnStacks || 0) * 0.04) * timeSpeed;
+        } else if (e.burnStacks) {
+          e.burnStacks = Math.max(0, e.burnStacks - 0.02 * timeSpeed);
+        }
         
         if (e.state === 'stunned') {
           e.stateTimer = (e.stateTimer || 0) - timeSpeed;
@@ -1243,14 +1279,50 @@ export default function App() {
               }
             }
           } else if (e.type === 'EliteBoss') {
+            const summonRing = (target: { x: number, y: number }) => {
+              const count = 24;
+              const radius = 240;
+              for (let k = 0; k < count; k++) {
+                const a = (Math.PI * 2 * k) / count;
+                const sx = Math.max(0, Math.min(currentMap.width, target.x + Math.cos(a) * radius));
+                const sy = Math.max(0, Math.min(currentMap.height, target.y + Math.sin(a) * radius));
+                room.enemies.push({
+                  id: room.enemyIdCounter++,
+                  x: sx,
+                  y: sy,
+                  hp: 18 * room.stage,
+                  maxHp: 18 * room.stage,
+                  type: 'Minion',
+                  vx: 0, vy: 0, knockbackX: 0, knockbackY: 0,
+                  text: '包围',
+                  width: 42,
+                  height: 20,
+                  speed: 1.8,
+                  state: 'stunned',
+                  stateTimer: 90, // 1.5s 预警停留
+                  lastAttack: 0,
+                  isBuffed: true
+                });
+              }
+            };
+
             const bossPhase = e.hp > e.maxHp * 0.66 ? 1 : (e.hp > e.maxHp * 0.33 ? 2 : 3);
             e.stateTimer = (e.stateTimer || 0) + timeSpeed;
+            const hpRatio = e.hp / e.maxHp;
+            if (!e.summon70Triggered && hpRatio <= 0.7) {
+              e.summon70Triggered = true;
+              summonRing(nearestP || { x: e.x, y: e.y });
+            }
+            if (!e.summon30Triggered && hpRatio <= 0.3) {
+              e.summon30Triggered = true;
+              summonRing(nearestP || { x: e.x, y: e.y });
+            }
             
             const attackInterval = bossPhase === 1 ? 300 : (bossPhase === 2 ? 240 : 180);
 
             if (e.stateTimer > attackInterval) {
               e.stateTimer = 0;
-              const attacks = ['delete', 'summon'];
+              const attacks = ['delete'];
               if (bossPhase >= 2) attacks.push('fontsize', 'plus');
               if (bossPhase >= 3) attacks.push('multiply');
 
@@ -1270,30 +1342,6 @@ export default function App() {
                   id: room.aoeIdCounter++,
                   x: ax, y: ay, w, h, type: aoeType, life: aoeLife, maxLife: aoeLife
                 });
-              } else if (attack === 'summon') {
-                if (room.enemies.length < 200) {
-                  const count = 50 + Math.floor(Math.random() * 30);
-                  for (let k=0; k<count; k++) {
-                    let sx = e.x + (Math.random()-0.5)*800;
-                    let sy = e.y + (Math.random()-0.5)*800;
-                    sx = Math.max(0, Math.min(currentMap.width, sx));
-                    sy = Math.max(0, Math.min(currentMap.height, sy));
-                    const r = Math.random();
-                    let stype: EnemyType = 'Minion';
-                    let stext = '乱码';
-                    let shp = 15 * room.stage;
-                    let sspeed = 1.0 + Math.random()*0.5;
-                    let sw = 60, sh = 20;
-                    if (r < 0.2) { stype = 'FormatBrush'; stext = '格式刷'; shp = 40*room.stage; sspeed = 0.8; sw = 50; }
-                    else if (r < 0.4) { stype = 'Value'; stext = '#VALUE!'; shp = 30*room.stage; sspeed = 1.5; sw = 60; }
-
-                    room.enemies.push({
-                      id: room.enemyIdCounter++, x: sx, y: sy, hp: shp, maxHp: shp, type: stype,
-                      vx: 0, vy: 0, knockbackX: 0, knockbackY: 0, text: stext, width: sw, height: sh, speed: sspeed,
-                      state: 'idle', stateTimer: 0, lastAttack: 0
-                    });
-                  }
-                }
               } else if (attack === 'fontsize') {
                 const targets = room.enemies.filter(en => (en.type === 'Minion' || en.type === 'FormatBrush') && !en.isBuffed);
                 for (let k=0; k<Math.min(20, targets.length); k++) {
@@ -1539,6 +1587,7 @@ export default function App() {
             else if (puddle.type === 'slow_zone') enemySpeedMult = Math.min(enemySpeedMult, 0.1);
           }
         }
+        if (e.freezeUntil && Date.now() < e.freezeUntil) enemySpeedMult = Math.min(enemySpeedMult, 0.12);
 
         let moveX = (e.vx * enemySpeedMult * timeSpeed * (room.activeEvent === 'OOM' ? 0.5 : 1)) + e.knockbackX;
         let moveY = (e.vy * enemySpeedMult * timeSpeed * (room.activeEvent === 'OOM' ? 0.5 : 1)) + e.knockbackY;
@@ -1686,6 +1735,18 @@ export default function App() {
               damageMult: 1.35,
               owner: b.owner
             });
+            if (room.players[b.owner]?.specificUpgrades.includes('wordart_column_freeze')) {
+              room.puddles.push({
+                id: room.puddleIdCounter++,
+                x: prevX + (b.x - prevX) * t,
+                y: prevY + (b.y - prevY) * t,
+                radius: 26,
+                type: 'slow_zone',
+                life: 60,
+                maxLife: 60,
+                owner: b.owner
+              });
+            }
           }
         }
 
@@ -1715,6 +1776,14 @@ export default function App() {
                   const nearby = room.recentExplosions.filter(ex => Math.hypot(ex.x - b.x, ex.y - b.y) < 200).length;
                   if (nearby >= 1) finalDamage *= (1 + nearby * 0.4);
                   room.recentExplosions.push({ x: b.x, y: b.y, time: Date.now() });
+                }
+                if (ownerPlayer && ownerPlayer.specificUpgrades.includes('comment_gravity_well')) {
+                  const gDist = Math.hypot(e.x - b.x, e.y - b.y);
+                  if (gDist < 260 && gDist > 1) {
+                    const gAngle = Math.atan2(b.y - e.y, b.x - e.x);
+                    e.vx += Math.cos(gAngle) * 4;
+                    e.vy += Math.sin(gAngle) * 4;
+                  }
                 }
 
                 if (b.isSuper && e.type !== 'EliteBoss' && e.type !== 'MiniBoss') {
@@ -1752,6 +1821,18 @@ export default function App() {
                 }
               }
             });
+            const ownerForGravity = room.players[b.owner];
+            if (ownerForGravity && ownerForGravity.specificUpgrades.includes('comment_gravity_well')) {
+              for (const target of room.enemies) {
+                const gDist = Math.hypot(target.x - b.x, target.y - b.y);
+                if (gDist < 280 && gDist > 1) {
+                  const gAngle = Math.atan2(b.y - target.y, b.x - target.x);
+                  const pull = Math.max(1.5, 5 * (1 - gDist / 280));
+                  target.vx += Math.cos(gAngle) * pull;
+                  target.vy += Math.sin(gAngle) * pull;
+                }
+              }
+            }
             
             // Visual explosion puddle
             room.puddles.push({
@@ -1947,6 +2028,19 @@ export default function App() {
                   id: room.puddleIdCounter++, x: e.x, y: e.y, radius: 60, type: 'formatPaint', life: 200, maxLife: 200, damage: b.damage * 0.2, owner: b.owner
                 });
               }
+              if (b.type === 'array' && ownerPlayer && ownerPlayer.specificUpgrades.includes('array_spreadsheet') && Math.random() < 0.25) {
+                room.puddles.push({
+                  id: room.puddleIdCounter++,
+                  x: e.x,
+                  y: e.y,
+                  radius: 70,
+                  type: 'spreadsheet',
+                  life: 220,
+                  maxLife: 220,
+                  damage: b.damage * 0.25,
+                  owner: b.owner
+                });
+              }
 
               if (b.type === 'array' && ownerPlayer && ownerPlayer.specificUpgrades.includes('array_overload')) {
                 const entry = arrayHitsThisFrame.get(e.id) || { totalDmg: 0, count: 0, x: e.x, y: e.y, owner: b.owner };
@@ -2002,7 +2096,10 @@ export default function App() {
                   const isBoss = e.type === 'EliteBoss' || e.type === 'MiniBoss';
                   const isElite = e.type !== 'Minion' && e.type !== 'MINION';
                   if (isBoss) {
-                    const wallHitRatio = e.type === 'EliteBoss' ? 0.2 : 1 / 3;
+                    let wallHitRatio = e.type === 'EliteBoss' ? 0.2 : 1 / 3;
+                    if (ownerPlayer && ownerPlayer.specificUpgrades.includes('wordart_pile_driver')) {
+                      wallHitRatio += e.type === 'EliteBoss' ? 0.1 : 0.15;
+                    }
                     e.hp -= e.maxHp * wallHitRatio;
                     e.crushCooldown = now + 500;
                     shake.current = Math.max(shake.current, 8);
@@ -2013,17 +2110,41 @@ export default function App() {
                       color: '#f97316',
                       text: e.type === 'EliteBoss' ? 'WALL -20% MAX HP' : 'WALL -33% MAX HP'
                     });
+                    for (let d = 0; d < 10; d++) {
+                      particles.current.push({
+                        x: e.x + (Math.random() - 0.5) * e.width,
+                        y: e.y + (Math.random() - 0.5) * e.height,
+                        vx: (Math.random() - 0.5) * 8,
+                        vy: (Math.random() - 0.5) * 8,
+                        life: 24 + Math.random() * 10,
+                        color: '#111111',
+                        text: ['{', '}', ';', '/', '*', '0', '1'][Math.floor(Math.random() * 7)]
+                      });
+                    }
                   } else if (isElite) {
                     if (!e.crushCount) {
                       e.crushCount = 1;
                       e.crushCooldown = now + 1000; // 1 second cooldown
-                      e.hp -= e.maxHp * 0.5; // Deal 50% damage
+                      let crushRatio = 0.5;
+                      if (ownerPlayer && ownerPlayer.specificUpgrades.includes('wordart_pile_driver')) crushRatio = 0.75;
+                      e.hp -= e.maxHp * crushRatio;
                       shake.current = Math.max(shake.current, 5);
                       particles.current.push({
                         x: e.x, y: e.y,
                         vx: 0, vy: -2,
                         life: 30, color: '#ffaa00', text: 'CRUSH 1/2!'
                       });
+                      for (let d = 0; d < 8; d++) {
+                        particles.current.push({
+                          x: e.x + (Math.random() - 0.5) * e.width,
+                          y: e.y + (Math.random() - 0.5) * e.height,
+                          vx: (Math.random() - 0.5) * 7,
+                          vy: (Math.random() - 0.5) * 7,
+                          life: 20 + Math.random() * 8,
+                          color: '#0a0a0a',
+                          text: ['#', '%', '&', '{', '}'][Math.floor(Math.random() * 5)]
+                        });
+                      }
                     } else {
                       e.hp = 0;
                       shake.current = Math.max(shake.current, 10);
@@ -2202,7 +2323,7 @@ export default function App() {
           room.puddles.splice(i, 1);
           continue;
         }
-        if ((p.type === 'highlight' || p.type === 'formatPaint' || p.type === 'burn_slow') && room.stageTimer % 10 === 0) {
+        if ((p.type === 'highlight' || p.type === 'formatPaint' || p.type === 'burn_slow' || p.type === 'spreadsheet') && room.stageTimer % 10 === 0) {
           room.enemies.forEach(e => {
             if (Math.hypot(e.x - p.x, e.y - p.y) < p.radius + e.width/2) {
               let pdmg = p.damage || 0;
@@ -2256,7 +2377,8 @@ export default function App() {
           while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
           while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
           
-          if (dist < l.range && Math.abs(angleDiff) < 0.1) {
+          const hitAngle = l.aimAssist ? 0.16 : 0.1;
+          if (dist < l.range && Math.abs(angleDiff) < hitAngle) {
             l.hitTargets.add(e.id);
             
             const ownerPlayer = room.players[l.owner];
@@ -2279,10 +2401,14 @@ export default function App() {
                 e.validationMark = Date.now();
               }
             }
-            if (ownerPlayer && ownerPlayer.specificUpgrades.includes('sparkline_resonance') && (e as any).isSlowed) finalDamage *= 1.8;
+            if (ownerPlayer && ownerPlayer.specificUpgrades.includes('sparkline_resonance') && e.slowedUntil && Date.now() < e.slowedUntil) finalDamage *= 1.8;
             if (ownerPlayer && ownerPlayer.specificUpgrades.includes('sparkline_execute') && e.hp / e.maxHp < 0.25 && e.type !== 'EliteBoss' && e.type !== 'MiniBoss') finalDamage *= 3;
 
             e.hp -= finalDamage;
+            if (l.isBurnStack) {
+              e.burnStacks = (e.burnStacks || 0) + 1;
+              e.burnUntil = Date.now() + 2000;
+            }
             
             // Strikethrough execute
             if (l.isStrikethrough && e.hp > 0 && e.hp / e.maxHp <= 0.2 && e.type !== 'EliteBoss' && e.type !== 'MiniBoss') {
@@ -2297,15 +2423,15 @@ export default function App() {
               e.hp = 0;
             }
             
-            if (e.hp > 0 && l.stunChance && Math.random() < l.stunChance) {
-              e.state = 'stunned';
-              e.stateTimer = 60; // 1s
+            if (e.hp > 0 && l.freezeChance && Math.random() < l.freezeChance) {
+              e.freezeUntil = Date.now() + 1000;
             }
             
             if ((l as any).isSlow) {
               e.vx *= 0.2;
               e.vy *= 0.2;
               (e as any).isSlowed = true;
+              e.slowedUntil = Date.now() + 1200;
             }
             
             shake.current = Math.max(shake.current, 1);
@@ -2339,6 +2465,17 @@ export default function App() {
               }
               if (nearestE) {
                 const targetAngle = Math.atan2(nearestE.y - e.y, nearestE.x - e.x);
+                for (let fx = 0; fx < 8; fx++) {
+                  particles.current.push({
+                    x: e.x,
+                    y: e.y,
+                    vx: Math.cos(targetAngle + (Math.random() - 0.5) * 0.6) * (2 + Math.random() * 3),
+                    vy: Math.sin(targetAngle + (Math.random() - 0.5) * 0.6) * (2 + Math.random() * 3),
+                    life: 16 + Math.random() * 10,
+                    text: ['/', '\\\\', '-', '='][Math.floor(Math.random() * 4)],
+                    color: '#7dd3fc'
+                  });
+                }
                 room.lasers.push({
                   id: room.bulletIdCounter++,
                   owner: l.owner,
@@ -2354,7 +2491,10 @@ export default function App() {
                   eliteDamageMult: l.eliteDamageMult,
                   enemyBouncesLeft: l.enemyBouncesLeft,
                   wallBouncesLeft: l.wallBouncesLeft,
-                  isSlow: (l as any).isSlow
+                  isSlow: (l as any).isSlow,
+                  aimAssist: l.aimAssist,
+                  isBurnStack: l.isBurnStack,
+                  freezeChance: l.freezeChance
                 } as Laser);
               }
             }
@@ -2566,10 +2706,25 @@ export default function App() {
       let cameraY = me ? me.y - canvas.height / (2 * SCALE) : 0;
 
       if (shake.current > 0) {
-        cameraX += (Math.random() - 0.5) * shake.current;
-        cameraY += (Math.random() - 0.5) * shake.current;
-        shake.current *= 0.9;
-        if (shake.current < 0.5) shake.current = 0;
+        const tier = shake.current > 18 ? 'heavy' : (shake.current > 7 ? 'medium' : 'light');
+        const t = Date.now() * 0.02;
+        if (tier === 'heavy') {
+          const amp = shake.current * 0.9;
+          cameraX += Math.sin(t * 1.7) * amp + (Math.random() - 0.5) * amp * 0.35;
+          cameraY += Math.cos(t * 1.3) * amp + (Math.random() - 0.5) * amp * 0.35;
+          shake.current *= 0.92;
+        } else if (tier === 'medium') {
+          const amp = shake.current * 0.7;
+          cameraX += Math.sin(t * 1.2) * amp * 0.5 + (Math.random() - 0.5) * amp * 0.5;
+          cameraY += Math.cos(t * 1.05) * amp * 0.5 + (Math.random() - 0.5) * amp * 0.5;
+          shake.current *= 0.88;
+        } else {
+          const amp = shake.current * 0.5;
+          cameraX += (Math.random() - 0.5) * amp;
+          cameraY += (Math.random() - 0.5) * amp;
+          shake.current *= 0.82;
+        }
+        if (shake.current < 0.35) shake.current = 0;
       }
 
       ctx.save();
@@ -2772,6 +2927,38 @@ export default function App() {
           ctx.beginPath();
           ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
           ctx.fill();
+          ctx.restore();
+        } else if (p.type === 'afterimage' || p.type === 'slow_zone') {
+          ctx.save();
+          ctx.globalAlpha = alpha * 0.35;
+          ctx.fillStyle = p.type === 'afterimage' ? '#a855f7' : '#38bdf8';
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = p.type === 'afterimage' ? '#c084fc' : '#7dd3fc';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          ctx.restore();
+        } else if (p.type === 'spreadsheet') {
+          ctx.save();
+          ctx.globalAlpha = alpha * 0.4;
+          ctx.fillStyle = '#16a34a';
+          ctx.fillRect(p.x - p.radius, p.y - p.radius, p.radius * 2, p.radius * 2);
+          ctx.strokeStyle = '#bbf7d0';
+          ctx.lineWidth = 1;
+          const cell = 14;
+          for (let x = p.x - p.radius; x <= p.x + p.radius; x += cell) {
+            ctx.beginPath();
+            ctx.moveTo(x, p.y - p.radius);
+            ctx.lineTo(x, p.y + p.radius);
+            ctx.stroke();
+          }
+          for (let y = p.y - p.radius; y <= p.y + p.radius; y += cell) {
+            ctx.beginPath();
+            ctx.moveTo(p.x - p.radius, y);
+            ctx.lineTo(p.x + p.radius, y);
+            ctx.stroke();
+          }
           ctx.restore();
         }
       });
@@ -2997,6 +3184,19 @@ export default function App() {
           ctx.font = boldCode(13);
           ctx.fillText(`BOSS ${Math.floor(hpR * 100)}%`, e.x, e.y - e.height/2 - 18);
         }
+        if (e.freezeUntil && Date.now() < e.freezeUntil) {
+          ctx.save();
+          ctx.globalAlpha = 0.75;
+          ctx.strokeStyle = '#7dd3fc';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, Math.max(e.width, e.height) * 0.45, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.fillStyle = '#bfdbfe';
+          ctx.font = boldCode(12);
+          ctx.fillText('❄', e.x, e.y - e.height / 2 - 22);
+          ctx.restore();
+        }
 
         // ── HP条（MiniBoss/EliteBoss/特殊怪，保留现有显示条件） ──
         if (['MiniBoss','EliteBoss','FreezeCell','MergedCell','REF','VLOOKUP','MACRO'].includes(e.type)) {
@@ -3004,6 +3204,16 @@ export default function App() {
           ctx.fillRect(e.x - e.width/2, e.y - e.height/2 - 10, e.width, 4);
           ctx.fillStyle = '#e81123';
           ctx.fillRect(e.x - e.width/2, e.y - e.height/2 - 10, e.width * (e.hp / e.maxHp), 4);
+        }
+        if (e.validationMark && (Date.now() - e.validationMark) <= 4000) {
+          ctx.font = boldCode(10);
+          ctx.fillStyle = '#2563eb';
+          ctx.fillText('VALID?', e.x, e.y - e.height / 2 - 18);
+        }
+        if (e.burnUntil && Date.now() < e.burnUntil && (e.burnStacks || 0) > 0) {
+          ctx.font = boldCode(10);
+          ctx.fillStyle = '#f97316';
+          ctx.fillText(`🔥x${Math.max(1, Math.floor(e.burnStacks || 1))}`, e.x, e.y - e.height / 2 - 30);
         }
       });
 
@@ -3089,12 +3299,12 @@ export default function App() {
             ctx.shadowColor = 'rgba(207,19,34,0.8)';
             ctx.shadowBlur = 15;
             ctx.fillStyle = grad;
-            ctx.fillText(b.text || '清场', 0, 0);
+            ctx.fillText(b.text || 'SEGFAULT', 0, 0);
 
             ctx.shadowBlur = 0;
             ctx.lineWidth = 2;
             ctx.strokeStyle = '#ffffff';
-            ctx.strokeText(b.text || '清场', 0, 0);
+            ctx.strokeText(b.text || 'SEGFAULT', 0, 0);
           } else {
             // 普通 WordArt：墙体排布始终与移动方向垂直（整面墙被推出去）
             const wallAngle = (b.angle || 0) + Math.PI / 2;
@@ -3172,31 +3382,35 @@ export default function App() {
           ctx.save();
           ctx.translate(b.x, b.y);
           ctx.rotate(b.angle || 0);
-          
-          // 深灰底色，黄色边框
-          ctx.fillStyle = '#2d2d2d';
-          ctx.beginPath();
-          ctx.roundRect(-20, -10, 40, 20, 4);
-          ctx.fill();
-          ctx.strokeStyle = '#d29922';
-          ctx.lineWidth = 1.5;
-          ctx.stroke();
-          
-          ctx.font = codeFont(10);
-          ctx.fillStyle = '#d29922';
+          const radius = 26;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText('throw Error()', 0, 0);
-          
-          // 引信火花
-          const sparkX = -20 + (now/20)%40;
-          ctx.fillStyle = '#f85149';
-          ctx.fillRect(sparkX, -12, 4, 4);
+          // 纯代码环
+          ctx.font = codeFont(10);
+          const ringChars = ['{', '}', '(', ')', ';', '/', '*', '#', '0x', 'NaN'];
+          const step = (Math.PI * 2) / 14;
+          for (let i = 0; i < 14; i++) {
+            const a = i * step + now * 0.003;
+            const ch = ringChars[(i + Math.floor(now / 120)) % ringChars.length];
+            ctx.fillStyle = `rgba(210,153,34,${0.6 + 0.35 * Math.sin(a * 2 + now * 0.01)})`;
+            ctx.fillText(ch, Math.cos(a) * radius, Math.sin(a) * radius);
+          }
+          // 内核字符球
+          const coreChars = ['err', 'throw', '!', '??'];
+          ctx.font = boldCode(11);
+          ctx.fillStyle = '#fef3c7';
+          ctx.fillText(coreChars[Math.floor((now / 90 + b.id) % coreChars.length)], 0, 0);
+          // 脉冲外环
+          ctx.strokeStyle = 'rgba(248,81,73,0.7)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(0, 0, radius - 4 + Math.sin(now * 0.01) * 2, 0, Math.PI * 2);
+          ctx.stroke();
           
           if (b.isStrikethrough) {
             ctx.beginPath();
-            ctx.moveTo(-25, 0);
-            ctx.lineTo(25, 0);
+            ctx.moveTo(-30, 0);
+            ctx.lineTo(30, 0);
             ctx.strokeStyle = '#f85149';
             ctx.lineWidth = 2;
             ctx.stroke();
@@ -3281,18 +3495,36 @@ export default function App() {
               }
             }
           } else {
-            // 普通激光：前向喷射字符流（无闪烁）
+            // 普通激光：字符流 + 核心能量束
+            const coreGrad = ctx.createLinearGradient(0, 0, l.range, 0);
+            coreGrad.addColorStop(0, `rgba(180,240,255,${alpha * 0.8})`);
+            coreGrad.addColorStop(0.35, `rgba(120,220,255,${alpha * 0.65})`);
+            coreGrad.addColorStop(1, `rgba(120,220,255,0)`);
+            ctx.strokeStyle = coreGrad;
+            ctx.lineWidth = Math.max(2, l.width * 0.16);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(l.range, 0);
+            ctx.stroke();
+            // 外层辉光
+            ctx.strokeStyle = `rgba(140,220,255,${alpha * 0.28})`;
+            ctx.lineWidth = Math.max(6, l.width * 0.55);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(l.range, 0);
+            ctx.stroke();
+
             ctx.font = codeFont(13);
             const charCount = Math.floor(l.range / 10);
             const forwardOffset = (1 - alpha) * 24;
             for (let i = 0; i < charCount; i++) {
               const dist = i * 10;
               const char = '01NaNnull{}[]()=>undefinedvoid0xFFerr%$#@!'[(Math.floor(now / 45) - i + 84) % 42];
-              const yOffset = Math.sin(dist * 0.02) * 1.2;
+              const yOffset = Math.sin(dist * 0.02 + now * 0.004) * 1.6;
               const fade = Math.max(0, 1 - (dist / (l.range * 0.65)));
-              ctx.fillStyle = `rgba(20,20,20,${alpha * fade})`;
+              ctx.fillStyle = `rgba(20,20,20,${alpha * fade * 0.95})`;
 
-              const widthMultiplier = l.width > 20 ? 2 : 1;
+              const widthMultiplier = l.width > 20 ? 3 : 2;
               for (let w = -widthMultiplier; w <= widthMultiplier; w++) {
                 ctx.fillText(char, dist + forwardOffset, yOffset + w * 10);
               }
