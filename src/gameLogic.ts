@@ -136,7 +136,7 @@ export const UPGRADE_DESCS: Record<Upgrade, string> = {
   sparkline_reflect: '【反射】激光击中墙壁后反射1次',
   sparkline_overclock: '【超频】激光射速 x2',
   sparkline_burn_stack: '【灼烧叠加】激光命中会叠加灼烧层数，造成持续伤害',
-  sparkline_overload: '【过载】激光伤害大幅提升，但会消耗自身少量生命值',
+  sparkline_overload: '【过载】获得时一次性减少150最大生命值（最低100），激光伤害提高80%',
   sparkline_resonance: '【共鸣】激光命中已处于减速状态的敌人时，伤害×1.8',
   sparkline_execute: '【立即执行】激光对HP低于25%的非Boss敌人造成3倍伤害',
   comment_triple: '【三连投】一次扔出3颗炸弹，攻速降低20%',

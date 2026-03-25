@@ -384,6 +384,12 @@ export default function App() {
         });
       }
 
+      const MAX_ENEMIES = 300;
+      const trySpawnEnemy = (enemy: Enemy) => {
+        if (room.enemies.length >= MAX_ENEMIES) return false;
+        room.enemies.push(enemy);
+        return true;
+      };
       const spawnChance = 0.03 + (room.stage * 0.015) + (room.stageTimer / stageDuration) * 0.05;
       
       const hpMult = room.stage >= 5 ? 1 + (room.stage - 5) * 0.5 : 1;
@@ -392,14 +398,14 @@ export default function App() {
         room.bossSpawned = true;
         const bossCount = room.stage >= 10 ? 3 : (room.stage >= 8 ? 2 : 1);
         for (let i = 0; i < bossCount; i++) {
-          if (room.enemies.length >= 300) break;
+          if (room.enemies.length >= MAX_ENEMIES) break;
           const spawner = currentMap.spawners[Math.floor(Math.random() * currentMap.spawners.length)];
           let bossHp = 3300 * Math.pow(1.12, room.stage - 5);
           let spawnX = spawner.x + (Math.random() - 0.5) * 200;
           let spawnY = spawner.y + (Math.random() - 0.5) * 200;
           spawnX = Math.max(250, Math.min(currentMap.width - 250, spawnX));
           spawnY = Math.max(40, Math.min(currentMap.height - 40, spawnY));
-          room.enemies.push({
+          trySpawnEnemy({
             id: room.enemyIdCounter++,
             type: 'EliteBoss',
             x: spawnX,
@@ -417,12 +423,12 @@ export default function App() {
         }
       }
 
-      if (room.enemies.length < 300 && Math.random() < spawnChance * timeSpeed) {
+      if (room.enemies.length < MAX_ENEMIES && Math.random() < spawnChance * timeSpeed) {
         const spawner = currentMap.spawners[Math.floor(Math.random() * currentMap.spawners.length)];
         const spawnCount = Math.floor(Math.random() * 3) + 1 + Math.floor(room.stage / 2);
         
         for(let i=0; i<spawnCount; i++) {
-          if (room.enemies.length >= 300) break;
+          if (room.enemies.length >= MAX_ENEMIES) break;
           let sx = spawner.x + (Math.random() - 0.5) * 100;
           let sy = spawner.y + (Math.random() - 0.5) * 100;
           sx = Math.max(0, Math.min(currentMap.width, sx));
@@ -521,7 +527,7 @@ export default function App() {
           let weight = 1;
           if (['FreezeCell', 'MergedCell', 'REF', 'VLOOKUP', 'MACRO', 'MiniBoss'].includes(type)) weight = 10;
 
-          room.enemies.push({
+          trySpawnEnemy({
             id: room.enemyIdCounter++,
             x: sx, y: sy, hp, maxHp: hp, type, vx: 0, vy: 0, knockbackX: 0, knockbackY: 0,
             text, width, height, speed, weight,
@@ -739,8 +745,8 @@ export default function App() {
               if (specific.includes('wordart_title') && p.wordartCounter % 3 === 0) {
                 isTitle = true;
                 damageMult *= 2.5;
-                wordWidth *= 1.8;
-                wordHeight *= 1.8;
+                wordWidth *= 4.2;
+                wordHeight *= 4.2;
               }
 
               let finalDamage = damage * damageMult;
@@ -796,7 +802,7 @@ export default function App() {
             }
 
             if (specific.includes('sparkline_width')) {
-              width *= 1.5;
+              width *= 2.2;
               damageMult *= 1.2;
             }
             if (specific.includes('sparkline_focus')) {
@@ -809,7 +815,7 @@ export default function App() {
               fireRate *= 0.5;
             }
             if (specific.includes('sparkline_overload')) {
-              damageMult *= 1.6;
+              damageMult *= 1.8;
             }
 
             if (now - p.lastShot > fireRate && now > (p.sparklineVacuumUntil || 0)) {
@@ -858,10 +864,6 @@ export default function App() {
                 createLaser(12 * Math.PI / 180, 0.6, 0); // Increased side laser damage
                 createLaser(-12 * Math.PI / 180, 0.6, 0);
               }
-              if (specific.includes('sparkline_overload')) {
-                p.hp = Math.max(1, p.hp - 0.5);
-              }
-              
               fireCtrlC(finalDamage);
             }
           } else if (form === 'comment') {
@@ -923,7 +925,7 @@ export default function App() {
                   vy: Math.sin(p.angle + angleOffset) * bulletSpeed,
                   damage: finalDamage,
                   size: 20,
-                  pierce: pierce,
+                  pierce: 1,
                   life: 3000, // Max flight time
                   maxLife: 3000,
                   type: 'comment',
@@ -1013,8 +1015,8 @@ export default function App() {
                   isCrit: isCrit,
                   eliteDamageMult: eliteDamageMult,
                   splitsLeft: specific.includes('array_split') ? 1 : 0,
-                  bouncesLeft: specific.includes('array_bounce') ? 1 : 0,
-                  trackRadius: (specific.includes('array_track') ? 160 : 0) + (vlookupTrackRadius > 0 ? 80 : 0),
+                  wallBouncesLeft: specific.includes('array_bounce') ? 1 : 0,
+                  trackRadius: (specific.includes('array_track') ? 220 : 0) + (vlookupTrackRadius > 0 ? 120 : 0),
                   isHighlight: general.includes('highlight'),
                   leavesResidue: general.includes('underline'),
                   isItalic: general.includes('italic'),
@@ -1286,7 +1288,7 @@ export default function App() {
                 const a = (Math.PI * 2 * k) / count;
                 const sx = Math.max(0, Math.min(currentMap.width, target.x + Math.cos(a) * radius));
                 const sy = Math.max(0, Math.min(currentMap.height, target.y + Math.sin(a) * radius));
-                room.enemies.push({
+                if (!trySpawnEnemy({
                   id: room.enemyIdCounter++,
                   x: sx,
                   y: sy,
@@ -1302,7 +1304,7 @@ export default function App() {
                   stateTimer: 90, // 1.5s 预警停留
                   lastAttack: 0,
                   isBuffed: true
-                });
+                })) break;
               }
             };
 
@@ -1357,23 +1359,23 @@ export default function App() {
                   let sy = e.y + (isHoriz ? 0 : offset);
                   sx = Math.max(0, Math.min(currentMap.width, sx));
                   sy = Math.max(0, Math.min(currentMap.height, sy));
-                  room.enemies.push({
+                  if (!trySpawnEnemy({
                     id: room.enemyIdCounter++, x: sx, y: sy, hp: 15*room.stage, maxHp: 15*room.stage, type: 'Minion',
                     vx: 0, vy: 0, knockbackX: 0, knockbackY: 0, text: '+', width: 40, height: 40, speed: 1.5,
                     state: 'idle', stateTimer: 0, lastAttack: 0, isBuffed: true
-                  });
+                  })) break;
                 }
               } else if (attack === 'multiply') {
                 const targets = room.enemies.filter(en => en.type !== 'EliteBoss' && en.type !== 'MiniBoss');
                 for (let k=0; k<Math.min(30, targets.length); k++) {
                   const t = targets[Math.floor(Math.random() * targets.length)];
-                  room.enemies.push({
+                  if (!trySpawnEnemy({
                     ...t,
                     id: room.enemyIdCounter++,
                     x: t.x + (Math.random()-0.5)*100,
                     y: t.y + (Math.random()-0.5)*100,
                     hp: t.maxHp
-                  });
+                  })) break;
                 }
               }
             }
@@ -1534,7 +1536,7 @@ export default function App() {
               e.stateTimer = 120; // 2 seconds
               const existingMinions = room.enemies.filter(en => en.type === 'MINION' && en.spawnedBy === e.id).length;
               if (existingMinions < 4) {
-                room.enemies.push({
+                trySpawnEnemy({
                   id: room.enemyIdCounter++, x: e.x, y: e.y, hp: 10, maxHp: 10, type: 'MINION',
                   vx: 0, vy: 0, knockbackX: 0, knockbackY: 0, text: '💣', width: 30, height: 30, speed: 3.0, weight: 1,
                   state: 'idle', stateTimer: 0, lastAttack: 0, spawnedBy: e.id
@@ -1627,7 +1629,7 @@ export default function App() {
             }
             for (let k = 0; k < 4; k++) {
               const angle = (Math.PI / 2) * k + Math.random();
-              room.enemies.push({
+              trySpawnEnemy({
                 id: room.enemyIdCounter++,
                 x: e.x + Math.cos(angle) * 20,
                 y: e.y + Math.sin(angle) * 20,
@@ -1692,6 +1694,8 @@ export default function App() {
 
       for (let i = room.bullets.length - 1; i >= 0; i--) {
         const b = room.bullets[i];
+        const prevX = b.x;
+        const prevY = b.y;
         
         if (b.trackRadius && b.trackRadius > 0) {
           let nearestE = null;
@@ -1707,7 +1711,8 @@ export default function App() {
             let angleDiff = targetAngle - currentAngle;
             while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
             while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-            const newAngle = currentAngle + angleDiff * 0.08;
+            const trackStrength = b.type === 'array' ? 0.2 : 0.14;
+            const newAngle = currentAngle + angleDiff * trackStrength;
             b.vx = Math.cos(newAngle) * speed;
             b.vy = Math.sin(newAngle) * speed;
           }
@@ -2056,17 +2061,17 @@ export default function App() {
             if (b.isBulldozer) {
               const prevX = e.x;
               const prevY = e.y;
-              
-              // Push them slightly faster than the bullet
-              e.x += b.vx * timeSpeed * 1.5;
-              e.y += b.vy * timeSpeed * 1.5;
+              let nextX = e.x + b.vx * timeSpeed * 1.5;
+              let nextY = e.y + b.vy * timeSpeed * 1.5;
               
               // Pull towards the center of the bullet to prevent slipping out
               if (Math.abs(b.vx) > Math.abs(b.vy)) {
-                e.y += (b.y - e.y) * 0.2;
+                nextY += (b.y - e.y) * 0.2;
               } else {
-                e.x += (b.x - e.x) * 0.2;
+                nextX += (b.x - e.x) * 0.2;
               }
+              e.x = nextX;
+              e.y = nextY;
 
               const ownerPlayer = room.players[b.owner];
               if (ownerPlayer && ownerPlayer.specificUpgrades.includes('wordart_momentum')) {
@@ -2083,12 +2088,20 @@ export default function App() {
               }
               
               let atWall = false;
-              if (e.x <= e.width/2 || e.x >= currentMap.width - e.width/2 || 
-                  e.y <= e.height/2 || e.y >= currentMap.height - e.height/2 ||
-                  checkObstacleCollision(e.x, e.y, e.width, e.height)) {
-                atWall = true;
-                e.x = prevX; // Revert movement to prevent going into wall/out of bounds
-                e.y = prevY;
+              const pushDist = Math.hypot(e.x - prevX, e.y - prevY);
+              const sweepSteps = Math.max(1, Math.ceil(pushDist / 12));
+              for (let step = 1; step <= sweepSteps; step++) {
+                const t = step / sweepSteps;
+                const sx = prevX + (e.x - prevX) * t;
+                const sy = prevY + (e.y - prevY) * t;
+                if (sx <= e.width/2 || sx >= currentMap.width - e.width/2 ||
+                    sy <= e.height/2 || sy >= currentMap.height - e.height/2 ||
+                    checkObstacleCollision(sx, sy, e.width, e.height)) {
+                  atWall = true;
+                  e.x = prevX;
+                  e.y = prevY;
+                  break;
+                }
               }
 
               if (atWall) {
@@ -2220,6 +2233,7 @@ export default function App() {
                 b.splitsLeft--;
                 const speed = Math.hypot(b.vx, b.vy);
                 const currentAngle = Math.atan2(b.vy, b.vx);
+                const splitPierce = b.pierce >= 999 ? 999 : Math.max(1, b.pierce);
                 for (let j = -1; j <= 1; j++) {
                   const newAngle = currentAngle + j * Math.PI / 6;
                   room.bullets.push({
@@ -2228,7 +2242,7 @@ export default function App() {
                     vx: Math.cos(newAngle) * speed,
                     vy: Math.sin(newAngle) * speed,
                     splitsLeft: 0,
-                    pierce: 1,
+                    pierce: splitPierce,
                     damage: b.damage * 0.45,
                     hitTargets: new Set()
                   });
@@ -2247,9 +2261,29 @@ export default function App() {
           if (b.life > 0) {
             room.bullets.splice(i, 1);
           }
-        } else if ((!b.isBulldozer && checkObstacleCollision(b.x, b.y, b.size, b.size)) || 
-            b.x < -100 || b.x > currentMap.width + 100 || b.y < -100 || b.y > currentMap.height + 100) {
-          b.life = 0;
+        } else if (!b.isBulldozer) {
+          const hitLeft = b.x - b.size < room.margin;
+          const hitRight = b.x + b.size > currentMap.width - room.margin;
+          const hitTop = b.y - b.size < room.margin;
+          const hitBottom = b.y + b.size > currentMap.height - room.margin;
+          const outOfBounds = b.x < -100 || b.x > currentMap.width + 100 || b.y < -100 || b.y > currentMap.height + 100;
+          const hitObstacle = checkObstacleCollision(b.x, b.y, b.size, b.size);
+
+          if ((hitLeft || hitRight || hitTop || hitBottom || hitObstacle) && b.wallBouncesLeft && b.wallBouncesLeft > 0) {
+            const collideX = checkObstacleCollision(b.x, prevY, b.size, b.size) || hitLeft || hitRight;
+            const collideY = checkObstacleCollision(prevX, b.y, b.size, b.size) || hitTop || hitBottom;
+            b.x = prevX;
+            b.y = prevY;
+            if (collideX) b.vx *= -1;
+            if (collideY) b.vy *= -1;
+            if (!collideX && !collideY) {
+              b.vx *= -1;
+              b.vy *= -1;
+            }
+            b.wallBouncesLeft--;
+          } else if (outOfBounds || hitObstacle) {
+            b.life = 0;
+          }
         }
       }
 
@@ -2514,6 +2548,11 @@ export default function App() {
           room.lasers.splice(i, 1);
         }
       }
+
+      if (room.bullets.length > 900) room.bullets = room.bullets.slice(-900);
+      if (room.enemyBullets.length > 500) room.enemyBullets = room.enemyBullets.slice(-500);
+      if (room.puddles.length > 260) room.puddles = room.puddles.slice(-260);
+      if (room.lasers.length > 180) room.lasers = room.lasers.slice(-180);
       
       if (particles.current.length > 200) {
         particles.current = particles.current.slice(-200);
@@ -2596,6 +2635,10 @@ export default function App() {
       } else {
         if (!p.specificUpgrades.includes(upgrade as SpecificUpgrade)) {
           p.specificUpgrades.push(upgrade as SpecificUpgrade);
+          if (upgrade === 'sparkline_overload') {
+            p.maxHp = Math.max(100, p.maxHp - 150);
+            p.hp = Math.min(p.hp, p.maxHp);
+          }
         }
       }
       
@@ -2860,107 +2903,47 @@ export default function App() {
         const lifeRatio = p.life / p.maxLife;
         const alpha = Math.min(1, lifeRatio * 3); // Fade out at end
 
-        if (p.type === 'explosion') {
-          // 爆炸：同心圆旋转乱码
-          ctx.save();
-          ctx.translate(p.x, p.y);
-          ctx.globalAlpha = alpha;
-          const errTexts = ['#REF!','#VALUE!','#DIV/0!','#NAME?','#NUM!'];
-          const t = now * 0.002;
-          for (let r = 1; r <= 3; r++) {
-            const rad = p.radius * (r / 3);
-            const count = r * 4;
-            ctx.font = boldCode(10 + r*2);
-            ctx.fillStyle = r % 2 === 0 ? '#f85149' : '#d29922';
-            for (let i = 0; i < count; i++) {
-              const angle = (i / count) * Math.PI * 2 + t * (r % 2 === 0 ? 1 : -1);
-              ctx.save();
-              ctx.translate(Math.cos(angle)*rad, Math.sin(angle)*rad);
-              ctx.rotate(angle + Math.PI/2);
-              ctx.fillText(errTexts[(i+r)%errTexts.length], 0, 0);
-              ctx.restore();
-            }
-          }
-          ctx.restore();
-
-        } else if (p.type === 'highlight' || p.type === 'burn_slow') {
-          // 矩阵字符雨效果
-          ctx.save();
-          ctx.globalAlpha = alpha * 0.6;
-          ctx.fillStyle = p.type === 'highlight' ? '#ffb900' : '#e81123';
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-          ctx.fill();
-          
-          ctx.clip();
-          ctx.font = codeFont(12);
-          ctx.fillStyle = p.type === 'highlight' ? '#a4262c' : '#ffffff';
-          ctx.textAlign = 'center';
-          const dropCount = Math.floor(p.radius / 8);
-          for (let i = -dropCount; i <= dropCount; i++) {
-            const x = p.x + i * 15;
-            const speed = 20 + (Math.abs(i) % 3) * 10;
-            const yOffset = (now / speed) % (p.radius * 2);
-            const char = '01NaNnull{}[]()=>undefinedvoid0xFFerr%$#@!'[(Math.floor(now/100)+i+dropCount)%42];
-            ctx.fillText(char, x, p.y - p.radius + yOffset);
-          }
-          ctx.restore();
-
-        } else if (p.type === 'formatPaint') {
-          ctx.save();
-          ctx.globalAlpha = alpha * 0.5;
-          ctx.fillStyle = '#107c41';
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.font = cnFont(24);
-          ctx.fillStyle = '#ffffff';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText('🖌️', p.x, p.y);
-          ctx.restore();
-
-        } else if (p.type === 'blacken') {
-          ctx.save();
-          ctx.globalAlpha = alpha * 0.8;
-          ctx.fillStyle = '#000000';
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.restore();
-        } else if (p.type === 'afterimage' || p.type === 'slow_zone') {
-          ctx.save();
-          ctx.globalAlpha = alpha * 0.35;
-          ctx.fillStyle = p.type === 'afterimage' ? '#a855f7' : '#38bdf8';
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.strokeStyle = p.type === 'afterimage' ? '#c084fc' : '#7dd3fc';
-          ctx.lineWidth = 1.5;
-          ctx.stroke();
-          ctx.restore();
-        } else if (p.type === 'spreadsheet') {
-          ctx.save();
-          ctx.globalAlpha = alpha * 0.4;
-          ctx.fillStyle = '#16a34a';
-          ctx.fillRect(p.x - p.radius, p.y - p.radius, p.radius * 2, p.radius * 2);
-          ctx.strokeStyle = '#bbf7d0';
-          ctx.lineWidth = 1;
-          const cell = 14;
-          for (let x = p.x - p.radius; x <= p.x + p.radius; x += cell) {
-            ctx.beginPath();
-            ctx.moveTo(x, p.y - p.radius);
-            ctx.lineTo(x, p.y + p.radius);
-            ctx.stroke();
-          }
-          for (let y = p.y - p.radius; y <= p.y + p.radius; y += cell) {
-            ctx.beginPath();
-            ctx.moveTo(p.x - p.radius, y);
-            ctx.lineTo(p.x + p.radius, y);
-            ctx.stroke();
-          }
-          ctx.restore();
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const glyphsByType: Record<string, string[]> = {
+          explosion: ['#REF!', '#DIV/0!', 'ERR', 'NULL', 'NaN'],
+          highlight: ['HL', '++', '0x', '01'],
+          burn_slow: ['HOT', '!!', 'err', 'x'],
+          formatPaint: ['fmt', '刷', '::', '=='],
+          blacken: ['██', '##', '//', '..'],
+          afterimage: ['af', '..', '::', '01'],
+          slow_zone: ['SLOW', '<>', '--', '::'],
+          spreadsheet: ['[ ]', 'A1', 'B2', 'SUM']
+        };
+        const colorByType: Record<string, string> = {
+          explosion: '#f85149',
+          highlight: '#ffb900',
+          burn_slow: '#e81123',
+          formatPaint: '#107c41',
+          blacken: '#111111',
+          afterimage: '#a855f7',
+          slow_zone: '#38bdf8',
+          spreadsheet: '#16a34a'
+        };
+        const glyphs = glyphsByType[p.type] || ['..'];
+        ctx.fillStyle = colorByType[p.type] || '#666666';
+        const density = Math.max(10, Math.floor(p.radius / 5));
+        for (let i = 0; i < density; i++) {
+          const angle = (i / density) * Math.PI * 2 + now * 0.0015 * ((i % 2 === 0) ? 1 : -1);
+          const r = (0.2 + ((i * 17 + p.id) % 80) / 100) * p.radius;
+          const gx = p.x + Math.cos(angle) * r;
+          const gy = p.y + Math.sin(angle) * r;
+          const g = glyphs[(i + Math.floor(now / 120)) % glyphs.length];
+          ctx.font = g.length > 2 ? codeFont(9) : codeFont(11);
+          ctx.fillText(g, gx, gy);
         }
+        if (p.type === 'formatPaint') {
+          ctx.font = cnFont(14);
+          ctx.fillText('格式', p.x, p.y);
+        }
+        ctx.restore();
       });
 
       gameState.enemies?.forEach((e: any) => {
@@ -3097,12 +3080,15 @@ export default function App() {
           }
 
         } else if (e.type === 'MergedCell') {
-          ctx.fillStyle = '#ede9fe';
-          ctx.fillRect(e.x - e.width/2, e.y - e.height/2, e.width, e.height);
-          ctx.strokeStyle = '#8b5cf6';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(e.x - e.width/2, e.y - e.height/2, e.width, e.height);
           ctx.fillStyle = '#6d28d9';
+          const mergeTokens = ['合并', 'CELL', '::', '[]', 'A:B'];
+          for (let i = 0; i < 18; i++) {
+            const a = (Math.PI * 2 * i) / 18 + now * 0.002;
+            const rx = e.x + Math.cos(a) * (e.width * 0.28);
+            const ry = e.y + Math.sin(a) * (e.height * 0.42);
+            ctx.font = codeFont(10);
+            ctx.fillText(mergeTokens[(i + e.id) % mergeTokens.length], rx, ry);
+          }
           ctx.font = cnFont(13);
           ctx.fillText('合并单元格', e.x, e.y);
 
@@ -3187,14 +3173,9 @@ export default function App() {
         if (e.freezeUntil && Date.now() < e.freezeUntil) {
           ctx.save();
           ctx.globalAlpha = 0.75;
-          ctx.strokeStyle = '#7dd3fc';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(e.x, e.y, Math.max(e.width, e.height) * 0.45, 0, Math.PI * 2);
-          ctx.stroke();
           ctx.fillStyle = '#bfdbfe';
-          ctx.font = boldCode(12);
-          ctx.fillText('❄', e.x, e.y - e.height / 2 - 22);
+          ctx.font = boldCode(11);
+          ctx.fillText('FREEZE', e.x, e.y - e.height / 2 - 22);
           ctx.restore();
         }
 
@@ -3281,78 +3262,42 @@ export default function App() {
         if (b.type === 'wordart') {
           ctx.save();
           ctx.translate(b.x, b.y);
+          // WordArt：墙体排布始终与移动方向垂直（整面墙被推出去）
+          const wallAngle = (b.angle || 0) + Math.PI / 2;
+          ctx.rotate(wallAngle);
 
-          if (b.isTitle) {
-            ctx.rotate(b.angle || 0);
-            // 巨型大标题清场特效
-            const scale = 1 + Math.sin(now * 0.01) * 0.1;
-            ctx.scale(scale, scale);
-            ctx.font = cnFont(48);
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
+          const titleScale = b.isTitle ? 1.35 : 1;
+          const wallW = (b.width || Math.max(56, (b.size || 18) * 3.2)) * titleScale;
+          const wallH = (b.height || Math.max(24, (b.size || 18) * 1.1)) * titleScale;
+          const halfW = wallW / 2;
+          const halfH = wallH / 2;
 
-            // 红色渐变
-            const grad = ctx.createLinearGradient(0, -24, 0, 24);
-            grad.addColorStop(0, '#ff4d4f');
-            grad.addColorStop(1, '#cf1322');
+          ctx.shadowColor = 'rgba(0,0,0,0.2)';
+          ctx.shadowBlur = 4;
 
-            ctx.shadowColor = 'rgba(207,19,34,0.8)';
-            ctx.shadowBlur = 15;
-            ctx.fillStyle = grad;
-            ctx.fillText(b.text || 'SEGFAULT', 0, 0);
-
-            ctx.shadowBlur = 0;
-            ctx.lineWidth = 2;
-            ctx.strokeStyle = '#ffffff';
-            ctx.strokeText(b.text || 'SEGFAULT', 0, 0);
-          } else {
-            // 普通 WordArt：墙体排布始终与移动方向垂直（整面墙被推出去）
-            const wallAngle = (b.angle || 0) + Math.PI / 2;
-            ctx.rotate(wallAngle);
-
-            const wallW = b.width || Math.max(56, (b.size || 18) * 3.2);
-            const wallH = b.height || Math.max(24, (b.size || 18) * 1.1);
-            const halfW = wallW / 2;
-            const halfH = wallH / 2;
-
-            ctx.shadowColor = 'rgba(0,0,0,0.2)';
-            ctx.shadowBlur = 4;
-
-            ctx.strokeStyle = 'rgba(17,24,39,0.35)';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(-halfW, -halfH, wallW, wallH);
-
-            // 前缘冲击高亮
-            const frontGrad = ctx.createLinearGradient(halfW - 14, 0, halfW + 4, 0);
-            frontGrad.addColorStop(0, 'rgba(17,24,39,0.05)');
-            frontGrad.addColorStop(1, 'rgba(17,24,39,0.28)');
-            ctx.fillStyle = frontGrad;
-            ctx.fillRect(halfW - 14, -halfH, 18, wallH);
-
-            // 代码“向前冲”效果
-            ctx.save();
-            ctx.beginPath();
-            ctx.rect(-halfW + 2, -halfH + 2, wallW - 4, wallH - 4);
-            ctx.clip();
-            const codeRows = Math.max(2, Math.floor(wallH / 8));
-            const snippets = ['const', 'if()', '=>', '{}', '0xFF', 'NaN', 'return', 'null'];
-            ctx.font = codeFont(8);
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'middle';
-            ctx.shadowBlur = 0;
-            for (let row = 0; row < codeRows; row++) {
-              const rowY = -halfH + 5 + row * 8;
-              const rowSpeed = 0.52 + row * 0.08;
-              for (let lane = 0; lane < 8; lane++) {
-                const token = snippets[(row + lane + b.id + Math.floor(now / 120)) % snippets.length];
-                const x = ((now * rowSpeed + lane * 29 + row * 17 + b.id * 13) % (wallW + 88)) - halfW - 44;
-                const alpha = 0.22 + (x + halfW + 44) / (wallW + 88) * 0.72;
-                ctx.fillStyle = `rgba(0,0,0,${Math.max(0.12, Math.min(0.9, alpha))})`;
-                ctx.fillText(token, x, rowY);
-              }
+          // 代码“向前冲”效果
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(-halfW + 2, -halfH + 2, wallW - 4, wallH - 4);
+          ctx.clip();
+          const codeRows = Math.max(2, Math.floor(wallH / 8));
+          const snippets = ['const', 'if()', '=>', '{}', '0xFF', 'NaN', 'return', 'null'];
+          ctx.font = codeFont(Math.max(8, Math.floor(wallH / 14)));
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.shadowBlur = 0;
+          for (let row = 0; row < codeRows; row++) {
+            const rowY = -halfH + 5 + row * 8;
+            const rowSpeed = 0.52 + row * 0.08;
+            for (let lane = 0; lane < 8; lane++) {
+              const token = snippets[(row + lane + b.id + Math.floor(now / 120)) % snippets.length];
+              const x = ((now * rowSpeed + lane * 29 + row * 17 + b.id * 13) % (wallW + 88)) - halfW - 44;
+              const alpha = 0.22 + (x + halfW + 44) / (wallW + 88) * 0.72;
+              ctx.fillStyle = `rgba(0,0,0,${Math.max(0.12, Math.min(0.9, alpha))})`;
+              ctx.fillText(token, x, rowY);
             }
-            ctx.restore();
           }
+          ctx.restore();
           ctx.restore();
 
         } else if (b.type === 'array') {
@@ -3382,30 +3327,21 @@ export default function App() {
           ctx.save();
           ctx.translate(b.x, b.y);
           ctx.rotate(b.angle || 0);
-          const radius = 26;
+          const radius = 30;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          // 纯代码环
-          ctx.font = codeFont(10);
-          const ringChars = ['{', '}', '(', ')', ';', '/', '*', '#', '0x', 'NaN'];
-          const step = (Math.PI * 2) / 14;
-          for (let i = 0; i < 14; i++) {
-            const a = i * step + now * 0.003;
-            const ch = ringChars[(i + Math.floor(now / 120)) % ringChars.length];
-            ctx.fillStyle = `rgba(210,153,34,${0.6 + 0.35 * Math.sin(a * 2 + now * 0.01)})`;
-            ctx.fillText(ch, Math.cos(a) * radius, Math.sin(a) * radius);
+          const bombChars = ['#REF!', 'ERR', '!!', '{ }', '0x'];
+          const count = 22;
+          for (let i = 0; i < count; i++) {
+            const a = (i / count) * Math.PI * 2 + now * 0.004;
+            const r = radius * (0.35 + ((i * 7 + b.id) % 60) / 100);
+            ctx.font = codeFont(10);
+            ctx.fillStyle = i % 2 === 0 ? '#f59e0b' : '#f85149';
+            ctx.fillText(bombChars[(i + Math.floor(now / 100)) % bombChars.length], Math.cos(a) * r, Math.sin(a) * r);
           }
-          // 内核字符球
-          const coreChars = ['err', 'throw', '!', '??'];
           ctx.font = boldCode(11);
           ctx.fillStyle = '#fef3c7';
-          ctx.fillText(coreChars[Math.floor((now / 90 + b.id) % coreChars.length)], 0, 0);
-          // 脉冲外环
-          ctx.strokeStyle = 'rgba(248,81,73,0.7)';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(0, 0, radius - 4 + Math.sin(now * 0.01) * 2, 0, Math.PI * 2);
-          ctx.stroke();
+          ctx.fillText('BOMB', 0, 0);
           
           if (b.isStrikethrough) {
             ctx.beginPath();
@@ -3501,14 +3437,14 @@ export default function App() {
             coreGrad.addColorStop(0.35, `rgba(120,220,255,${alpha * 0.65})`);
             coreGrad.addColorStop(1, `rgba(120,220,255,0)`);
             ctx.strokeStyle = coreGrad;
-            ctx.lineWidth = Math.max(2, l.width * 0.16);
+            ctx.lineWidth = Math.max(3, l.width * 0.3);
             ctx.beginPath();
             ctx.moveTo(0, 0);
             ctx.lineTo(l.range, 0);
             ctx.stroke();
             // 外层辉光
             ctx.strokeStyle = `rgba(140,220,255,${alpha * 0.28})`;
-            ctx.lineWidth = Math.max(6, l.width * 0.55);
+            ctx.lineWidth = Math.max(8, l.width * 0.85);
             ctx.beginPath();
             ctx.moveTo(0, 0);
             ctx.lineTo(l.range, 0);
